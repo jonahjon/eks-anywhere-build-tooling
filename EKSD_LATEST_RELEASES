@@ -9,15 +9,18 @@ releases:
   number: 22
   kubeVersion: v1.20.15
 - branch: 1-21
-  number: 21
+  number: 23
   kubeVersion: v1.21.14
 - branch: 1-22
-  number: 13
-  kubeVersion: v1.22.15
+  number: 16
+  kubeVersion: v1.22.17
 - branch: 1-23
-  number: 8
-  kubeVersion: v1.23.13
+  number: 11
+  kubeVersion: v1.23.15
 - branch: 1-24
-  number: 3
-  kubeVersion: v1.24.6
+  number: 6
+  kubeVersion: v1.24.9
+- branch: 1-25
+  number: 1
+  kubeVersion: v1.25.5
 latest: 1-22

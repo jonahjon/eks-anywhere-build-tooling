@@ -1,5 +1,5 @@
 ## **Image Builder Tool**
-![Version](https://img.shields.io/badge/version-0.1.1-blue)
+![Version](https://img.shields.io/badge/version-0.1.2-blue)
 
 Image Builder Tool is a cli that builds EKS-A compatible Kubernetes node images. The tool is based on upstream
 [image-builder](https://github.com/kubernetes-sigs/image-builder) project and uses packer to build the node images.
@@ -14,10 +14,10 @@ Supported OSes
 * ubuntu
 
 Supported Release Channels
+* 1-24
 * 1-23
 * 1-22
 * 1-21
-* 1-20
 
 ### Building Node Images for vSphere
 

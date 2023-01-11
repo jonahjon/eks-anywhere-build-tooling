@@ -1,7 +1,7 @@
 From 6264da1f0439c301e85d146052468381f0628313 Mon Sep 17 00:00:00 2001
 From: Guillermo Gaston <gaslor@amazon.com>
 Date: Fri, 4 Nov 2022 13:55:39 +0000
-Subject: [PATCH 21/23] Implement Reconcile mode for ClusterResourceSet
+Subject: [PATCH 21/25] Implement Reconcile mode for ClusterResourceSet
 
 ---
  ....cluster.x-k8s.io_clusterresourcesets.yaml |   1 +
@@ -962,7 +962,7 @@ new file mode 100644
 index 000000000..3cf15d151
 --- /dev/null
 +++ b/exp/addons/internal/controllers/clusterresourceset_scope.go
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,175 @@
 +/*
 +Copyright 2022 The Kubernetes Authors.
 +
@@ -1107,6 +1107,8 @@ index 000000000..3cf15d151
 +	}
 +
 +	patch := client.MergeFrom(currentObj.DeepCopy())
++	// metadata.ResourceVersion needs to be set to avoid webhook errors in applying
++	obj.SetResourceVersion(currentObj.GetResourceVersion())
 +	if err = c.Patch(ctx, obj, patch); err != nil {
 +		return errors.Wrapf(
 +			err,

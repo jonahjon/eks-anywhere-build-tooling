@@ -157,6 +157,7 @@ IMAGE_TARGETS=$(foreach image,$(IMAGE_NAMES),$(if $(filter true,$(BUILD_OCI_TARS
 # If running in the builder base on prow or codebuild, grab the current tag to be used when building with cgo
 CURRENT_BUILDER_BASE_TAG=$(or $(and $(wildcard /config/BUILDER_BASE_TAG_FILE),$(shell cat /config/BUILDER_BASE_TAG_FILE)),latest)
 CURRENT_BUILDER_BASE_IMAGE=$(if $(CODEBUILD_BUILD_IMAGE),$(CODEBUILD_BUILD_IMAGE),$(BASE_IMAGE_REPO)/builder-base:$(CURRENT_BUILDER_BASE_TAG))
+GOLANG_GCC_BUILDER_IMAGE=$(BASE_IMAGE_REPO)/golang:$(shell cat $(BASE_DIRECTORY)/EKS_DISTRO_MINIMAL_BASE_GOLANG_COMPILER_$(GOLANG_VERSION)_GCC_TAG_FILE)
 ####################################################
 
 #################### HELM ##########################
@@ -330,6 +331,7 @@ $(call trimap,setup_uniq_go_mod_license_filters,$(BINARY_TARGET_FILES),$(SOURCE_
 
 GO_MOD_DOWNLOAD_TARGETS?=$(foreach path, $(UNIQ_GO_MOD_PATHS), $(call GO_MOD_DOWNLOAD_TARGET_FROM_GO_MOD_PATH,$(path)))
 
+VENDOR_UPDATE_SCRIPT?=
 #### CGO ############
 CGO_CREATE_BINARIES?=false
 CGO_SOURCE=$(OUTPUT_DIR)/source
@@ -337,8 +339,9 @@ IS_ON_BUILDER_BASE?=$(shell if [ -f /buildkit.sh ]; then echo true; fi;)
 BUILDER_PLATFORM?=$(shell echo $$(go env GOHOSTOS)/$$(go env GOHOSTARCH))
 needs-cgo-builder=$(and $(if $(filter true,$(CGO_CREATE_BINARIES)),true,),$(if $(filter-out $(1),$(BUILDER_PLATFORM)),true,))
 USE_DOCKER_FOR_CGO_BUILD?=false
-DOCKER_USE_ID_FOR_LINUX=$(shell if [ "$$(uname -s)" = "Linux" ]; then echo "-u $$(id -u $${USER}):$$(id -g $${USER})"; fi)
+DOCKER_USE_ID_FOR_LINUX=$(shell if [ "$$(uname -s)" = "Linux" ] && [ -n "$${USER:-}" ]; then echo "-u $$(id -u $${USER}):$$(id -g $${USER})"; fi)
 GO_MOD_CACHE=$(shell source $(BUILD_LIB)/common.sh && build::common::use_go_version $(GOLANG_VERSION) > /dev/null 2>&1 && go env GOMODCACHE)
+GO_BUILD_CACHE=$(shell source $(BUILD_LIB)/common.sh && build::common::use_go_version $(GOLANG_VERSION) > /dev/null 2>&1 && go env GOCACHE)
 CGO_TARGET?=
 ######################
 
@@ -390,6 +393,8 @@ KUSTOMIZE_TARGET=$(OUTPUT_DIR)/kustomize
 GIT_DEPS_DIR?=$(OUTPUT_DIR)/gitdependencies
 SPECIAL_TARGET_SECONDARY=$(strip $(PROJECT_DEPENDENCIES_TARGETS) $(GO_MOD_DOWNLOAD_TARGETS))
 SKIP_CHECKSUM_VALIDATION?=false
+CGO_DOCKER_RUN_TIMEOUT?=15m
+DOCKER_RUN_COMMAND?=$(if $(filter true,$(CODEBUILD_CI)),retry_with_timeout $(CGO_DOCKER_RUN_TIMEOUT)) docker run $(shell if [ "$(CODEBUILD_CI)" != "true" ] && [ -t 0 ]; then echo '-it'; fi)
 ####################################################
 
 #################### TARGETS FOR OVERRIDING ########
@@ -397,33 +402,56 @@ BUILD_TARGETS?=validate-checksums attribution $(if $(IMAGE_NAMES),local-images,)
 RELEASE_TARGETS?=validate-checksums $(if $(IMAGE_NAMES),images,) $(if $(filter true,$(HAS_HELM_CHART)),helm/push,) $(if $(filter true,$(HAS_S3_ARTIFACTS)),upload-artifacts,)
 ####################################################
 
+# Locale settings impact file ordering in ls or shell file expansion. The file order is used to
+# generate files that are subsequently validated by the CI. If local environments use different 
+# locales to the CI we get unexpected failures that are tricky to debug without knowledge of 
+# locales so we'll explicitly warn here.
+ifneq ($(call TO_LOWER, $(LANG)), c.utf-8)
+ifneq ($(call TO_LOWER, $(LANG)), posix)
+  $(warning WARNING: Environment locale set to $(LANG). This may create non-deterministic behavior when generating files. If the CI fails validation try `LANG=C.UTF-8 make <recipe>` to generate files instead.)
+endif
+endif
+
 define BUILDCTL
-	if [[ "$(USE_DOCKER_FOR_CGO_BUILD)" = "true" ]]; then \
-		source $(BUILD_LIB)/common.sh && build::docker::retry_pull $(BUILDER_IMAGE); \
-		docker run --rm -w /eks-anywhere-build-tooling/projects/$(COMPONENT) $(DOCKER_USE_ID_FOR_LINUX) \
-			--mount type=bind,source=$(BASE_DIRECTORY),target=/eks-anywhere-build-tooling \
-			--mount type=bind,source=$(GO_MOD_CACHE),target=/mod-cache \
-			-e GOPROXY=$(GOPROXY) -e GOMODCACHE=/mod-cache \
-			--platform $(IMAGE_PLATFORMS) \
-			--init --entrypoint make $(BUILDER_IMAGE) $(CGO_TARGET) BINARY_PLATFORMS=$(IMAGE_PLATFORMS); \
-	else \
-		$(BUILD_LIB)/buildkit.sh \
-			build \
-			--frontend dockerfile.v0 \
-			--opt platform=$(IMAGE_PLATFORMS) \
-			--opt build-arg:BASE_IMAGE=$(BASE_IMAGE) \
-			--opt build-arg:BUILDER_IMAGE=$(BUILDER_IMAGE) \
-			--opt build-arg:RELEASE_BRANCH=$(RELEASE_BRANCH) \
-			$(foreach BUILD_ARG,$(IMAGE_BUILD_ARGS),--opt build-arg:$(BUILD_ARG)=$($(BUILD_ARG))) \
-			--progress plain \
-			--local dockerfile=$(DOCKERFILE_FOLDER) \
-			--local context=$(IMAGE_CONTEXT_DIR) \
-			--opt target=$(IMAGE_TARGET) \
-			--output type=$(IMAGE_OUTPUT_TYPE),oci-mediatypes=true,\"name=$(IMAGE),$(LATEST_IMAGE)\",$(IMAGE_OUTPUT) \
-			$(if $(filter push=true,$(IMAGE_OUTPUT)),--export-cache type=inline,) \
-			$(foreach IMPORT_CACHE,$(IMAGE_IMPORT_CACHE),--import-cache $(IMPORT_CACHE)); \
-	fi
+	$(BUILD_LIB)/buildkit.sh \
+		build \
+		--frontend dockerfile.v0 \
+		--opt platform=$(IMAGE_PLATFORMS) \
+		--opt build-arg:BASE_IMAGE=$(BASE_IMAGE) \
+		--opt build-arg:BUILDER_IMAGE=$(BUILDER_IMAGE) \
+		--opt build-arg:RELEASE_BRANCH=$(RELEASE_BRANCH) \
+		$(foreach BUILD_ARG,$(IMAGE_BUILD_ARGS),--opt build-arg:$(BUILD_ARG)=$($(BUILD_ARG))) \
+		--progress plain \
+		--local dockerfile=$(DOCKERFILE_FOLDER) \
+		--local context=$(IMAGE_CONTEXT_DIR) \
+		$(if $(filter push=true,$(IMAGE_OUTPUT)),--export-cache type=inline,) \
+		$(foreach IMPORT_CACHE,$(IMAGE_IMPORT_CACHE),--import-cache $(IMPORT_CACHE)) \
+		--opt target=$(IMAGE_TARGET) \
+		--output type=$(IMAGE_OUTPUT_TYPE),oci-mediatypes=true,\"name=$(IMAGE),$(LATEST_IMAGE)\",$(IMAGE_OUTPUT)
 endef 
+
+# This will occansionally stall out in codebuild for an unknown reason
+# retry after a configurable timeout
+define CGO_DOCKER
+	source $(BUILD_LIB)/common.sh && build::docker::retry_pull --platform $(IMAGE_PLATFORMS) $(BUILDER_IMAGE); \
+	$(DOCKER_RUN_COMMAND) --rm -w /eks-anywhere-build-tooling/projects/$(COMPONENT) $(DOCKER_USE_ID_FOR_LINUX) \
+		--mount type=bind,source=$(BASE_DIRECTORY),target=/eks-anywhere-build-tooling \
+		--mount type=bind,source=$(GO_MOD_CACHE),target=/mod-cache \
+		-e GOPROXY=$(GOPROXY) -e GOMODCACHE=/mod-cache \
+		--platform $(IMAGE_PLATFORMS) \
+		--init $(BUILDER_IMAGE) make $(CGO_TARGET) BINARY_PLATFORMS=$(IMAGE_PLATFORMS)
+endef
+
+define SIMPLE_CREATE_BINARIES_SHELL
+	$(BASE_DIRECTORY)/build/lib/simple_create_binaries.sh $(MAKE_ROOT) $(MAKE_ROOT)/$(OUTPUT_PATH) $(REPO) $(GOLANG_VERSION) $(PLATFORM) "$(SOURCE_PATTERN)" \
+		"$(GOBUILD_COMMAND)" "$(EXTRA_GOBUILD_FLAGS)" "$(GO_LDFLAGS)" $(CGO_ENABLED) "$(CGO_LDFLAGS)" "$(GO_MOD_PATH)" "$(BINARY_TARGET_FILES_BUILD_TOGETHER)"
+endef
+
+# $1 - make target
+# $2 - target directory
+define CGO_CREATE_BINARIES_SHELL
+	$(MAKE) binary-builder/cgo/$(PLATFORM:linux/%=%) IMAGE_OUTPUT=dest=$(OUTPUT_BIN_DIR)/$(2) CGO_TARGET=$(1) IMAGE_BUILD_ARGS="GOPROXY COMPONENT CGO_TARGET"
+endef
 
 define WRITE_LOCAL_IMAGE_TAG
 	echo $(IMAGE_TAG) > $(IMAGE_OUTPUT_DIR)/$(IMAGE_OUTPUT_NAME).docker_tag
@@ -493,12 +521,7 @@ $(OUTPUT_BIN_DIR)/%: SOURCE_PATTERN=$(if $(filter $(BINARY_TARGET),$(BINARY_TARG
 $(OUTPUT_BIN_DIR)/%: OUTPUT_PATH=$(if $(and $(if $(filter false,$(call IS_ONE_WORD,$(BINARY_TARGET_FILES_BUILD_TOGETHER))),$(filter $(BINARY_TARGET),$(BINARY_TARGET_FILES_BUILD_TOGETHER)))),$(@D)/,$@)
 $(OUTPUT_BIN_DIR)/%: GO_MOD_PATH=$($(call GO_MOD_TARGET_FOR_BINARY_VAR_NAME,$(BINARY_TARGET)))
 $(OUTPUT_BIN_DIR)/%: $$(call GO_MOD_DOWNLOAD_TARGET_FROM_GO_MOD_PATH,$$(GO_MOD_PATH))
-	if [ "$(call needs-cgo-builder,$(PLATFORM))" == "true" ]; then \
-		$(MAKE) binary-builder/cgo/$(PLATFORM:linux/%=%) IMAGE_OUTPUT=dest=$(OUTPUT_BIN_DIR)/$(*D) CGO_TARGET=$@ IMAGE_BUILD_ARGS="GOPROXY COMPONENT CGO_TARGET"; \
-	else \
-		$(BASE_DIRECTORY)/build/lib/simple_create_binaries.sh $(MAKE_ROOT) $(MAKE_ROOT)/$(OUTPUT_PATH) $(REPO) $(GOLANG_VERSION) $(PLATFORM) "$(SOURCE_PATTERN)" \
-			"$(GOBUILD_COMMAND)" "$(EXTRA_GOBUILD_FLAGS)" "$(GO_LDFLAGS)" $(CGO_ENABLED) "$(CGO_LDFLAGS)" "$(GO_MOD_PATH)" "$(BINARY_TARGET_FILES_BUILD_TOGETHER)"; \
-	fi
+	$(if $(filter true,$(call needs-cgo-builder,$(PLATFORM))),$(call CGO_CREATE_BINARIES_SHELL,$@,$(*D)),$(call SIMPLE_CREATE_BINARIES_SHELL))
 endif
 
 .PHONY: binaries
@@ -512,10 +535,10 @@ $(KUSTOMIZE_TARGET):
 clone-repo: $(REPO)
 
 .PHONY: checkout-repo
-checkout-repo: $(GIT_CHECKOUT_TARGET)
+checkout-repo: $(if $(PATCHES_DIR),$(GIT_PATCH_TARGET),$(GIT_CHECKOUT_TARGET))
 
 .PHONY: patch-repo
-patch-repo: $(GIT_PATCH_TARGET)
+patch-repo: checkout-repo
 
 ## File/Folder Targets
 
@@ -524,7 +547,6 @@ $(OUTPUT_DIR)/images/%:
 
 $(OUTPUT_DIR)/%TTRIBUTION.txt: SOURCE_FILE=$(@:_output/%=%) # we want to keep the release branch part which is in the OUTPUT var, hardcoding _output
 $(OUTPUT_DIR)/%TTRIBUTION.txt:
-	$(info $(@) $(SOURCE_FILE))
 	@mkdir -p $(OUTPUT_DIR)
 	@cp $(SOURCE_FILE) $(OUTPUT_DIR)
 
@@ -633,6 +655,7 @@ endif
 ## CGO Targets
 .PHONY: %/cgo/amd64 %/cgo/arm64 prepare-cgo-folder
 
+# .git folder needed so git properly finds the root of the repo
 prepare-cgo-folder:
 	@mkdir -p $(CGO_SOURCE)/eks-anywhere-build-tooling/
 	rsync -rm  --exclude='.git/***' \
@@ -640,7 +663,6 @@ prepare-cgo-folder:
 		--include='projects/$(COMPONENT)/***' --include='*/' --exclude='projects/***'  \
 		$(BASE_DIRECTORY)/ $(CGO_SOURCE)/eks-anywhere-build-tooling/
 	@mkdir -p $(OUTPUT_BIN_DIR)/$(subst /,-,$(IMAGE_PLATFORMS))
-	# Need so git properly finds the root of the repo
 	@mkdir -p $(CGO_SOURCE)/eks-anywhere-build-tooling/.git/{refs,objects}
 	@cp $(BASE_DIRECTORY)/.git/HEAD $(CGO_SOURCE)/eks-anywhere-build-tooling/.git
 
@@ -655,10 +677,10 @@ prepare-cgo-folder:
 %/cgo/arm64: IMAGE_PLATFORMS=linux/arm64
 
 %/cgo/amd64: prepare-cgo-folder
-	$(BUILDCTL)
+	$(if $(filter true, $(USE_DOCKER_FOR_CGO_BUILD)),$(CGO_DOCKER),$(BUILDCTL))
 
 %/cgo/arm64: prepare-cgo-folder
-	$(BUILDCTL)
+	$(if $(filter true, $(USE_DOCKER_FOR_CGO_BUILD)),$(CGO_DOCKER),$(BUILDCTL))
 
 # As an attempt to see if using docker is more stable for cgo builds in Codebuild
 binary-builder/cgo/%: USE_DOCKER_FOR_CGO_BUILD=$(shell command -v docker &> /dev/null && docker info > /dev/null 2>&1 && echo "true")
@@ -721,13 +743,32 @@ release: $(RELEASE_TARGETS)
 
 ###  Clean Targets
 
+.PHONY: clean-go-cache
+clean-go-cache:
+# When go downloads pkg to the module cache, GOPATH/pkg/mod, it removes the write permissions
+# prevent accident modifications since files/checksums are tightly controlled
+# adding the perms neccessary to perform the delete
+	@chmod -fR 777 $(GO_MOD_CACHE) &> /dev/null || :
+	$(foreach folder,$(GO_MOD_CACHE) $(GO_BUILD_CACHE),$(if $(wildcard $(folder)),du -hs $(folder) && rm -rf $(folder);,))
+# When building go bins using mods which have been downloaded by go mod download/vendor which will exist in the go_mod_cache
+# there is additional checksum (?) information that is not preserved in the vendor directory within the project folder
+# This additional information gets written out into the resulting binary. If we did not run go mod vendor, which we do 
+# for all project builds, we could get checksum mismatches on the final binaries due to sometimes having the mod previously
+# downloaded in the go_mod_cahe.  Running go mod vendor always ensures that the go mod has always been downloaded
+# to the go_mod_cache directory. If we clear the go_mod_cache we need to delete the go_mod_download sentinel file
+# so the next time we run build go mods will be redownloaded
+	$(foreach file,$(GO_MOD_DOWNLOAD_TARGETS),$(if $(wildcard $(file)),rm -f $(file);,))
+
 .PHONY: clean-repo
 clean-repo:
 	@rm -rf $(REPO)	$(HELM_SOURCE_REPOSITORY)
 
+.PHONY: clean-output
+clean-output:
+	$(if $(wildcard _output),du -hs _output && rm -rf _output,)
+
 .PHONY: clean
-clean: $(if $(filter true,$(REPO_NO_CLONE)),,clean-repo)
-	@rm -rf _output	
+clean: $(if $(filter true,$(REPO_NO_CLONE)),,clean-repo) clean-output
 
 ## --------------------------------------
 ## Help
@@ -769,6 +810,25 @@ stop-docker-builder: # Clean up builder base docker container
 .PHONY: generate
 generate: # Update UPSTREAM_PROJECTS.yaml
 	$(BUILD_LIB)/generate_projects_list.sh $(BASE_DIRECTORY)
+
+.PHONY: update-go-mods
+update-go-mods: # Update locally checked-in go sum to assist in vuln scanning
+update-go-mods: DEST_PATH=$(if $(IS_RELEASE_BRANCH_BUILD),$(RELEASE_BRANCH)/$$gomod,$$gomod)
+update-go-mods: checkout-repo
+	for gomod in $(GO_MOD_PATHS); do \
+		mkdir -p $(DEST_PATH); \
+		cp $(REPO)/$$gomod/go.{mod,sum} $(DEST_PATH); \
+	done
+
+.PHONY: update-vendor-for-dep-patch
+update-vendor-for-dep-patch: # After bumping dep in go.mod file, uses generic vendor update script or one provided from upstream project
+update-vendor-for-dep-patch: checkout-repo
+	$(BUILD_LIB)/update_vendor.sh $(PROJECT_ROOT) $(REPO) $(GIT_TAG) $(GOLANG_VERSION) $(VENDOR_UPDATE_SCRIPT)
+
+.PHONY: patch-for-dep-update
+patch-for-dep-update: # After bumping dep in go.mod file and updating vendor, generates patch
+patch-for-dep-update: checkout-repo
+	$(BUILD_LIB)/patch_for_dep_update.sh $(REPO) $(GIT_TAG) $(PROJECT_ROOT)/patches
 
 .PHONY: %/create-ecr-repo
 %/create-ecr-repo: IMAGE_NAME=$*

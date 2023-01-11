@@ -13,6 +13,17 @@ ALL_PROJECTS=$(shell $(BUILD_LIB)/all_projects.sh $(BASE_DIRECTORY))
 # $1 - project name using _ as seperator, ex: rancher_local-path-provisoner
 PROJECT_PATH_MAP=projects/$(patsubst $(firstword $(subst _, ,$(1)))_%,$(firstword $(subst _, ,$(1)))/%,$(1))
 
+# Locale settings impact file ordering in ls or shell file expansion. The file order is used to
+# generate files that are subsequently validated by the CI. If local environments use different 
+# locales to the CI we get unexpected failures that are tricky to debug without knowledge of 
+# locales so we'll explicitly warn here.
+TO_LOWER = $(shell echo $(1) | tr '[:upper:]' '[:lower:]')
+ifneq ($(call TO_LOWER, $(LANG)), c.utf-8)
+ifneq ($(call TO_LOWER, $(LANG)), posix)
+  $(warning WARNING: Environment locale set to $(LANG). This may create non-deterministic behavior when generating files. If the CI fails validation try `LANG=C.UTF-8 make <recipe>` to generate files instead.)
+endif
+endif
+
 .PHONY: clean-project-%
 clean-project-%:
 	$(eval PROJECT_PATH=$(call PROJECT_PATH_MAP,$*))
@@ -96,7 +107,7 @@ generate: generate-project-list generate-staging-buildspec
 validate-generated: generate
 	@if [ "$$(git status --porcelain -- UPSTREAM_PROJECTS.yaml release/staging-build.yml **/batch-build.yml | wc -l)" -gt 0 ]; then \
 		echo "Error: Generated files, UPSTREAM_PROJECTS.yaml release/staging-build.yml, do not match expected. Please run `make generate` to update"; \
-		git diff -- UPSTREAM_PROJECTS.yaml release/staging-build.yml; \
+		git diff -- UPSTREAM_PROJECTS.yaml release/staging-build.yml **/batch-build.yml; \
 		exit 1; \
 	fi
 	build/lib/readme_check.sh

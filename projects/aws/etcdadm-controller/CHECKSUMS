@@ -1,2 +1,2 @@
-b16b36c0820cd3c49b4f47119c9acfc28ba481a6a08b567b624e7818db90c876  _output/bin/etcdadm-controller/linux-amd64/manager
-8d3dff25ecefd7bbfb2047c5e64bef826d257fa3bb94703308d7f13ad667b735  _output/bin/etcdadm-controller/linux-arm64/manager
+b3504c1a83796467a1b951636ce3155ea1fd1347454268059fbd8ea8bec1f9d4  _output/bin/etcdadm-controller/linux-amd64/manager
+795481235ebe7f1f03b0d2ea28da7ea87bae1f9a53d6fc3803ab188f82a3b7a3  _output/bin/etcdadm-controller/linux-arm64/manager

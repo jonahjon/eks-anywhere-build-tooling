@@ -1,50 +1,119 @@
-package system
+package system_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"github.com/eks-anywhere-build-tooling/aws/bottlerocket-bootstrap/pkg/providers/snow/system"
 )
 
-const multiDNIs = `version = 2
-[1]
+var networkConfigTest = []struct {
+	name       string
+	data       map[string]interface{}
+	wantConfig string
+}{
+	{
+		name: "with static ip",
+		data: map[string]interface{}{
+			"network": []system.NetworkMapping{
+				{
+					DNI: "dni0",
+					StaticIP: &system.StaticIP{
+						Address: "address0",
+						Gateway: "gateway0",
+						Primary: true,
+					},
+				},
+				{
+					DNI: "dni1",
+					StaticIP: &system.StaticIP{
+						Address: "address1",
+						Gateway: "gateway1",
+						Primary: false,
+					},
+				},
+				{
+					DNI: "dni2",
+					StaticIP: &system.StaticIP{
+						Address: "address2",
+						Gateway: "gateway2",
+					},
+				},
+			},
+			"instanceIP":        "instanceip",
+			"defaultGateway":    "defaultgateway",
+			"metadataServiceIP": "metaserverip",
+		},
+		wantConfig: `version = 2
+[dni0]
+primary = true
+[dni0.static4]
+addresses = ["address0"]
+[[dni0.route]]
+to = "default"
+via = "gateway0"
+[dni1.static4]
+addresses = ["address1"]
+[[dni1.route]]
+to = "default"
+via = "gateway1"
+[dni2.static4]
+addresses = ["address2"]
+[[dni2.route]]
+to = "default"
+via = "gateway2"
+[eth0.static4]
+addresses = ["instanceip/25"]
+[[eth0.route]]
+to = "metaserverip/32"
+from = "instanceip"
+via = "defaultgateway"
+`,
+	},
+	{
+		name: "with dhcp",
+		data: map[string]interface{}{
+			"network": []system.NetworkMapping{
+				{
+					DNI: "dni0",
+				},
+				{
+					DNI: "dni1",
+				},
+				{
+					DNI: "dni2",
+				},
+			},
+			"instanceIP":        "instanceip",
+			"defaultGateway":    "defaultgateway",
+			"metadataServiceIP": "metaserverip",
+		},
+		wantConfig: `version = 2
+[dni0]
 dhcp4 = true
-[2]
+primary = true
+[dni1]
 dhcp4 = true
-[3]
+[dni2]
 dhcp4 = true
 [eth0.static4]
-addresses = ["1.2.3.4/25"]
+addresses = ["instanceip/25"]
 [[eth0.route]]
-to = "metadata/32"
-from = "1.2.3.4"
-via = "gateway"
-`
+to = "metaserverip/32"
+from = "instanceip"
+via = "defaultgateway"
+`,
+	},
+}
 
-func TestGenerateUserData(t *testing.T) {
+func TestNetworkConfiguration(t *testing.T) {
 	g := NewWithT(t)
-
-	testcases := []struct {
-		name   string
-		data   map[string]interface{}
-		output string
-	}{
-		{
-			name: "multi dnis",
-			data: map[string]interface{}{
-				"dnis":              []string{"1", "2", "3"},
-				"instanceIP":        "1.2.3.4",
-				"defaultGateway":    "gateway",
-				"metadataServiceIP": "metadata",
-			},
-			output: multiDNIs,
-		},
-	}
-	for _, testcase := range testcases {
-		t.Run(testcase.name, func(t *testing.T) {
-			b, err := generateNetworkTemplate(testcase.data)
+	for _, tt := range networkConfigTest {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := system.GenerateNetworkTemplate(tt.data)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(string(b)).To(Equal(testcase.output))
+			g.Expect(string(b)).To(Equal(tt.wantConfig))
 		})
 	}
 }

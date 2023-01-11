@@ -1,6 +1,7 @@
 {
     "$schema": "http://json-schema.org/schema#",
     "type": "object",
+    "additionalProperties": false,
     "properties": {
         "alertRelabelConfigs": {
             "type": "object"
@@ -12,7 +13,7 @@
             "type": "array"
         },
         "extraScrapeConfigs": {
-            "type": "array"
+            "type": "string"
         },
         "forceNamespace": {
             "type": "string"
@@ -25,6 +26,186 @@
             "properties": {
                 "enabled": {
                     "type": "boolean"
+                }
+            }
+        },
+        "nodeExporter": {
+            "type": "object",
+            "properties": {
+                "container": {
+                    "type": "object",
+                    "properties": {
+                        "securityContext": {
+                            "type": "object",
+                            "properties": {
+                                "allowPrivilegeEscalation": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                },
+                "dnsConfig": {
+                    "type": "object"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "extraArgs": {
+                    "type": "object"
+                },
+                "extraConfigmapMounts": {
+                    "type": "array"
+                },
+                "extraHostPathMounts": {
+                    "type": "array"
+                },
+                "extraInitContainers": {
+                    "type": "array"
+                },
+                "hostNetwork": {
+                    "type": "boolean"
+                },
+                "hostPID": {
+                    "type": "boolean"
+                },
+                "hostRootfs": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "digest": {
+                            "type": "string"
+                        },
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
+                "pod": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "podAnnotations": {
+                    "type": "object"
+                },
+                "podDisruptionBudget": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "maxUnavailable": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "podSecurityPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string"
+                },
+                "resources": {
+                    "type": "object"
+                },
+                "securityContext": {
+                    "type": "object",
+                    "properties": {
+                        "fsGroup": {
+                            "type": "integer"
+                        },
+                        "runAsGroup": {
+                            "type": "integer"
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean"
+                        },
+                        "runAsUser": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object",
+                            "properties": {
+                                "prometheus.io/scrape": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "clusterIP": {
+                            "type": "string"
+                        },
+                        "externalIPs": {
+                            "type": "array"
+                        },
+                        "hostPort": {
+                            "type": "integer"
+                        },
+                        "labels": {
+                            "type": "object"
+                        },
+                        "loadBalancerIP": {
+                            "type": "string"
+                        },
+                        "loadBalancerSourceRanges": {
+                            "type": "array"
+                        },
+                        "servicePort": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "tolerations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "effect": {
+                                "type": "string"
+                            },
+                            "key": {
+                                "type": "string"
+                            },
+                            "operator": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -458,6 +639,14 @@
                 "storagePath": {
                     "type": "string"
                 },
+                "strategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "tcpSocketProbeEnabled": {
                     "type": "boolean"
                 },
@@ -479,6 +668,7 @@
         },
         "serverFiles": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
                 "alerting_rules.yml": {
                     "type": "object"
@@ -533,6 +723,20 @@
         "serviceAccounts": {
             "type": "object",
             "properties": {
+                "nodeExporter": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "create": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "server": {
                     "type": "object",
                     "properties": {
