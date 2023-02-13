@@ -11,6 +11,8 @@ spec:
   selector:
     matchLabels:
       app: {{ .Values.boots.name }}
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
@@ -25,8 +27,10 @@ spec:
             - {{ . }}
           {{- end }}
           {{- end }}
-          {{- if .Values.boots.env }}
           env:
+            - name: "BOOTS_KUBE_NAMESPACE"
+              value: {{ .Values.namespace | quote }}
+          {{- if .Values.boots.env }}
             {{- range $i, $env := .Values.boots.env }}
             - name: {{ $env.name | quote }}
               value: {{ $env.value | quote }}

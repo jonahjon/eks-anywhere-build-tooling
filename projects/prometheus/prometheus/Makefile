@@ -11,8 +11,20 @@ BASE_IMAGE_NAME=eks-distro-minimal-base
 SOURCE_PATTERNS=./cmd/prometheus ./cmd/promtool
 # Add additional gobuild flag to embed the web UI in the go binary
 EXTRA_GOBUILD_FLAGS=-tags netgo,builtinassets
+GIT_COMMIT=$(shell git -C $(REPO) rev-parse --short HEAD)
+GIT_BRANCH=$(shell git -C $(REPO) rev-parse --abbrev-ref HEAD)
+BUILD_USER=$(shell id -u -n)
+BUILD_DATE=$(shell git -C $(REPO) show -s --format=format:%cd --date=format:'%Y-%m-%dT%H:%M:%SZ' HEAD)
+EXTRA_GO_LDFLAGS=-X github.com/prometheus/common/version.Version=$(GIT_TAG)	\
+	-X github.com/prometheus/common/version.Revision=$(GIT_COMMIT)	\
+	-X github.com/prometheus/common/version.Branch=$(GIT_BRANCH)	\
+	-X github.com/prometheus/common/version.BuildUser=$(BUILD_USER)	\
+	-X github.com/prometheus/common/version.BuildDate=$(BUILD_DATE)
+
 WEB_UI_TARGETS=prometheus/web/ui/embed.go
 EXTRA_DOCKER_FILE_TARGETS=$(OUTPUT_DIR)/extra/etc/prometheus/prometheus.yml
+
+FIX_LICENSES_CRONEXPR_TARGET=$(REPO)/vendor/github.com/hashicorp/cronexpr/LICENSE
 
 EXCLUDE_FROM_STAGING_BUILDSPEC=true
 
@@ -34,9 +46,12 @@ $(GO_MOD_DOWNLOAD_TARGETS): $(WEB_UI_TARGETS)
 $(LOCAL_IMAGE_TARGETS): $(EXTRA_DOCKER_FILE_TARGETS)
 $(IMAGE_TARGETS): $(EXTRA_DOCKER_FILE_TARGETS)
 
-# Before running ATTRIBUTION_TARGETS, we need to run fix-go-licenses first to correct
-# module names. Module "github.com" should be "github.com/prometheus/prometheus".
-$(ATTRIBUTION_TARGETS): fix-go-licenses
+$(GATHER_LICENSES_TARGETS): | $(FIX_LICENSES_CRONEXPR_TARGET)
+
+$(FIX_LICENSES_CRONEXPR_TARGET): | $(GO_MOD_DOWNLOAD_TARGETS)
+# hashicorp/cronexpr is dual licensed as GPL and Apache, since the files are not called
+# the standard license file name it is not found by go-licenses
+	cp $(@D)/APLv2 $@
 
 $(WEB_UI_TARGETS):
 	@echo '>> npm install and npm build'
@@ -57,10 +72,6 @@ $(EXTRA_DOCKER_FILE_TARGETS):
 	cp -r prometheus/consoles/* $(OUTPUT_DIR)/extra/usr/share/prometheus/consoles/
 
 	cp prometheus/npm_licenses.tar.bz2 $(OUTPUT_DIR)/npm_licenses.tar.bz2
-
-.phony: fix-go-licenses
-fix-go-licenses: $(GATHER_LICENSES_TARGETS)
-	build/fix_go_licenses.sh "github.com,https" "github.com\/prometheus\/prometheus,https" $(OUTPUT_DIR)/attribution/go-license.csv
 
 ########### DO NOT EDIT #############################
 # To update call: make add-generated-help-block

@@ -655,7 +655,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ** github.com/aws/aws-sdk-go/internal/sync/singleflight; version v1.38.49 --
 https://github.com/aws/aws-sdk-go
 
-** golang.org/go; version go1.18.9 --
+** golang.org/go; version go1.18.10 --
 https://github.com/golang/go
 
 ** golang.org/x/crypto/pkcs12; version v0.0.0-20220214200702-86341886e292 --
@@ -1379,10 +1379,6 @@ Copyright (c) 2016 Mail.Ru Group
 ** github.com/mitchellh/go-homedir; version v1.1.0 --
 https://github.com/mitchellh/go-homedir
 Copyright (c) 2013 Mitchell Hashimoto
-
-** github.com/satori/go.uuid; version v1.2.0 --
-https://github.com/satori/go.uuid
-Copyright (C) 2013-2018 by Maxim Bublis <b@codemonkey.ru>
 
 ** github.com/stretchr/objx; version v0.2.0 --
 https://github.com/stretchr/objx

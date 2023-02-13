@@ -1,2 +1,2 @@
-46897f9841c0c88bc39ba8c255a38777de963d1544ebbe520797e560be98f68e  _output/1-21/bin/autoscaler/linux-amd64/cluster-autoscaler
-ba2a284fbb102dda2ecc87f87981c0961d4dc27ceb17a52a15115f7f152b61ed  _output/1-21/bin/autoscaler/linux-arm64/cluster-autoscaler
+3ae7f968e47746ac31943094a38b4805b95b4525a9f36a0210167b323f68f859  _output/1-21/bin/autoscaler/linux-amd64/cluster-autoscaler
+1be33bc438bbbc37a61438548bdd2cc81c25bfe2104c7333e220e97467bc448f  _output/1-21/bin/autoscaler/linux-arm64/cluster-autoscaler

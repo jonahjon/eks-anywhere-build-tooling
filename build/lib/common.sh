@@ -77,7 +77,8 @@ function build::common::upload_artifacts() {
   local -r githash=$5
   local -r latesttag=$6
   local -r dry_run=$7
-
+  local -r do_not_delete=$8
+  
   if [ "$dry_run" = "true" ]; then
     aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --recursive --dryrun
     aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --recursive --dryrun
@@ -86,7 +87,12 @@ function build::common::upload_artifacts() {
     # 1. To proper path on s3 with buildId-githash
     # 2. Latest path to indicate the latest build, with --delete option to delete stale files in the dest path
     aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --acl public-read
-    aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --delete --acl public-read
+
+    if [ "$do_not_delete" = "true" ]; then
+      aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --acl public-read
+    else
+      aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --delete --acl public-read
+    fi
   fi
 }
 
@@ -94,7 +100,8 @@ function build::gather_licenses() {
   local -r outputdir=$1
   local -r patterns=$2
   local -r golang_version=$3
-
+  local -r threshold=$4
+  
   # Force deps to only be pulled form vendor directories
   # this is important in a couple cases where license files
   # have to be manually created
@@ -131,11 +138,11 @@ function build::gather_licenses() {
 
   # go-licenses can be a bit noisy with its output and lot of it can be confusing 
   # the following messages are safe to ignore since we do not need the license url for our process
-  NOISY_MESSAGES="cannot determine URL for|Error discovering license URL|unsupported package host|contains non-Go code|has empty version|vendor.*\.s$"
-
-  go-licenses save --force $patterns --save_path="${outputdir}/LICENSES" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
+  NOISY_MESSAGES="cannot determine URL for|Error discovering license URL|unsupported package host|contains non-Go code|has empty version|vendor.*\.(h|s)$"
+ 
+  go-licenses save --confidence_threshold $threshold  --force $patterns --save_path="${outputdir}/LICENSES" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
   
-  go-licenses csv $patterns > "${outputdir}/attribution/go-license.csv" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
+  go-licenses csv --confidence_threshold $threshold $patterns > "${outputdir}/attribution/go-license.csv" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
 
   if cat "${outputdir}/attribution/go-license.csv" | grep -q "^vendor\/golang.org\/x"; then
       echo " go-licenses created a file with a std golang package (golang.org/x/*)"
@@ -278,7 +285,7 @@ function build::common::get_latest_eksa_asset_url() {
     s3artifactfolder=$s3downloadpath/artifacts
   fi
 
-  local -r tar_file_prefix=$(make --no-print-directory -C $BUILD_ROOT/../../projects/${project} var-value-TAR_FILE_PREFIX)
+  local -r tar_file_prefix=$(MAKEFLAGS= make --no-print-directory -C $BUILD_ROOT/../../projects/${project} var-value-TAR_FILE_PREFIX)
  
   local -r url="https://$(basename $artifact_bucket).s3-us-west-2.amazonaws.com/projects/$project/$s3artifactfolder/$tar_file_prefix-linux-$arch-${git_tag}.tar.gz"
 
@@ -311,7 +318,7 @@ function build::common::wait_for_tarball() {
   sleep_interval=20
   for i in {1..60}; do
     echo "Checking for URL ${tarball_url}..."
-    local -r http_code=$(curl -I -L -s -o /dev/null -w "%{http_code}" $tarball_url)
+    local http_code=$(curl -I -L -s -o /dev/null -w "%{http_code}" $tarball_url)
     if [[ "$http_code" == "200" ]]; then 
       echo "Tarball exists!" && break
     fi

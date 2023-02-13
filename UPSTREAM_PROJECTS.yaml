@@ -32,7 +32,7 @@ projects:
     repos:
       - name: etcdadm-bootstrap-provider
         versions:
-          - tag: v1.0.5-rc3
+          - tag: v1.0.5-rc4
       - name: etcdadm-controller
         versions:
           - tag: v1.0.4-rc4
@@ -40,7 +40,7 @@ projects:
     repos:
       - name: aws-otel-collector
         versions:
-          - tag: v0.23.0
+          - tag: v0.25.0
   - org: brancz
     repos:
       - name: kube-rbac-proxy
@@ -50,7 +50,7 @@ projects:
     repos:
       - name: cert-manager
         versions:
-          - tag: v1.9.1
+          - tag: v1.11.0
   - org: cilium
     repos:
       - name: cilium
@@ -110,8 +110,8 @@ projects:
           - commit: 8c37531f1
           - commit: 141d510b7
           - commit: 81727d2a6
-          - tag: f69e14b5d
-          - tag: e8d3e9b1d
+          - commit: f69e14b5d
+          - commit: e8d3e9b1d
       - name: cloud-provider-aws
         versions:
           - tag: v1.22.3
@@ -123,14 +123,15 @@ projects:
           - tag: v1.23.1
           - tag: v1.24.1
           - tag: v1.25.0
+          - tag: v1.25.0
   - org: kubernetes-sigs
     repos:
       - name: cluster-api
         versions:
-          - tag: v1.2.0
+          - tag: v1.3.3
       - name: cluster-api-provider-cloudstack
         versions:
-          - tag: v0.4.9-rc3
+          - tag: v0.4.9-rc4
       - name: cluster-api-provider-vsphere
         versions:
           - tag: v1.3.1
@@ -158,15 +159,15 @@ projects:
     repos:
       - name: cluster-api-provider-nutanix
         versions:
-          - tag: v1.1.0
+          - tag: v1.1.1
   - org: prometheus
     repos:
       - name: node_exporter
         versions:
-          - tag: v1.4.0
+          - tag: v1.5.0
       - name: prometheus
         versions:
-          - tag: v2.39.1
+          - tag: v2.41.0
   - org: rancher
     repos:
       - name: local-path-provisioner
@@ -186,25 +187,25 @@ projects:
     repos:
       - name: boots
         versions:
-          - commit: 79b1d9acb65dfd0527b44800eddbdcf6b751c8d8
+          - tag: v0.8.1
       - name: cluster-api-provider-tinkerbell
         versions:
-          - commit: 9e9c2a397288908f73a4f499ac00aaf96d15deb6
+          - tag: v0.4.0
       - name: hegel
         versions:
-          - commit: 7b286fdc8e8fa91a6e9a179a5494b6ee29fce17b
+          - tag: v0.10.1
       - name: hook
         versions:
-          - tag: 6d43b8b331c7a389f3ffeaa388fa9aa98248d7a2
+          - commit: 03a67729d895635fe3c612e4feca3400b9336cc9
       - name: hub
         versions:
           - commit: 6c0f0d437bde2c836d90b000312c8b25fa1b65e1
       - name: rufio
         versions:
-          - commit: a4053e5c1e7f32fb5c0a9962846c219c3ef8aaf3
+          - tag: v0.2.1
       - name: tink
         versions:
-          - commit: 19b68beab1a902846c10ee3422cafb4fd5c3307e
+          - tag: v0.8.0
   - org: torvalds
     repos:
       - name: linux

@@ -616,7 +616,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ** github.com/aws/aws-sdk-go/internal/sync/singleflight; version v1.38.49 --
 https://github.com/aws/aws-sdk-go
 
-** golang.org/go; version go1.18.9 --
+** golang.org/go; version go1.18.10 --
 https://github.com/golang/go
 
 ** golang.org/x/crypto/pkcs12; version v0.0.0-20210220033148-5ea612d1eb83 --
@@ -1336,10 +1336,6 @@ Copyright (c) 2016 Mail.Ru Group
 ** github.com/rubiojr/go-vhd/vhd; version v0.0.0-20200706105327-02e210299021 --
 https://github.com/rubiojr/go-vhd
 Copyright (c) 2015 Sergio Rubio
-
-** github.com/satori/go.uuid; version v1.2.0 --
-https://github.com/satori/go.uuid
-Copyright (C) 2013-2018 by Maxim Bublis <b@codemonkey.ru>
 
 ** github.com/stretchr/objx; version v0.2.0 --
 https://github.com/stretchr/objx

@@ -374,6 +374,9 @@ GATHER_LICENSES_TARGETS?=$(call pairmap,LICENSE_TARGET_FROM_BINARY_GO_MOD,$(BINA
 LICENSES_OUTPUT_DIR?=$(OUTPUT_DIR)
 LICENSES_TARGETS_FOR_PREREQ=$(if $(filter true,$(HAS_LICENSES)),$(GATHER_LICENSES_TARGETS) \
 	$(foreach target,$(ATTRIBUTION_TARGETS),_output/$(target)),)
+# .9 is the default if nothing is passed to go-licenses
+# allow override on a per project basis for super specific cases
+LICENSE_THRESHOLD?=.9
 ####################################################
 
 #################### TARBALLS ######################
@@ -386,9 +389,11 @@ FAKE_AMD_BINARIES_FOR_VALIDATION?=$(if $(filter linux/amd64,$(BINARY_PLATFORMS))
 FAKE_ARM_IMAGES_FOR_VALIDATION?=false
 IMAGE_FORMAT?=
 IMAGE_OS?=
+UPLOAD_DO_NOT_DELETE?=false
 ####################################################
 
 #################### OTHER #########################
+KUSTOMIZE_VERSION=4.5.7
 KUSTOMIZE_TARGET=$(OUTPUT_DIR)/kustomize
 GIT_DEPS_DIR?=$(OUTPUT_DIR)/gitdependencies
 SPECIAL_TARGET_SECONDARY=$(strip $(PROJECT_DEPENDENCIES_TARGETS) $(GO_MOD_DOWNLOAD_TARGETS))
@@ -406,10 +411,17 @@ RELEASE_TARGETS?=validate-checksums $(if $(IMAGE_NAMES),images,) $(if $(filter t
 # generate files that are subsequently validated by the CI. If local environments use different 
 # locales to the CI we get unexpected failures that are tricky to debug without knowledge of 
 # locales so we'll explicitly warn here.
-ifneq ($(call TO_LOWER, $(LANG)), c.utf-8)
-ifneq ($(call TO_LOWER, $(LANG)), posix)
-  $(warning WARNING: Environment locale set to $(LANG). This may create non-deterministic behavior when generating files. If the CI fails validation try `LANG=C.UTF-8 make <recipe>` to generate files instead.)
-endif
+# In a AL2 container image (like builder base), LANG will be empty which is equilvant to posix
+# In a AL2 (or other distro) full instance the LANG will be en-us.UTF-8 which produces different sorts
+# On Mac, LANG will be en-us.UTF-8 but has a fix applied to sort to avoid the difference
+ifeq ($(shell uname -s),Linux)
+  LOCALE:=$(call TO_LOWER,$(shell locale | grep LANG | cut -d= -f2 | tr -d '"'))
+  LOCALE:=$(if $(LOCALE),$(LOCALE),posix)
+  ifeq ($(filter c.utf-8 posix,$(LOCALE)),)
+    $(warning WARNING: Environment locale set to $(LANG). On Linux systems this may create \
+	non-deterministic behavior when running generation recipes. If the CI fails validation try \
+	`LANG=C.UTF-8 make <recipe>` to generate files instead.)
+  endif
 endif
 
 define BUILDCTL
@@ -529,7 +541,7 @@ binaries: $(BINARY_TARGETS)
 
 $(KUSTOMIZE_TARGET):
 	@mkdir -p $(OUTPUT_DIR)
-	curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- $(OUTPUT_DIR)
+	curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s $(KUSTOMIZE_VERSION) $(OUTPUT_DIR)
 
 .PHONY: clone-repo
 clone-repo: $(REPO)
@@ -559,7 +571,7 @@ $(OUTPUT_DIR)/%ttribution/go-license.csv: BINARY_TARGET=$(if $(filter .,$(*D)),,
 $(OUTPUT_DIR)/%ttribution/go-license.csv: GO_MOD_PATH=$(if $(BINARY_TARGET),$(GO_MOD_TARGET_FOR_BINARY_$(call TO_UPPER,$(BINARY_TARGET))),$(word 1,$(UNIQ_GO_MOD_PATHS)))
 $(OUTPUT_DIR)/%ttribution/go-license.csv: LICENSE_PACKAGE_FILTER=$(GO_MOD_$(subst /,_,$(GO_MOD_PATH))_LICENSE_PACKAGE_FILTER)
 $(OUTPUT_DIR)/%ttribution/go-license.csv: $$(call GO_MOD_DOWNLOAD_TARGET_FROM_GO_MOD_PATH,$$(GO_MOD_PATH))	
-	$(BASE_DIRECTORY)/build/lib/gather_licenses.sh $(REPO) $(MAKE_ROOT)/$(OUTPUT_DIR)/$(BINARY_TARGET) "$(LICENSE_PACKAGE_FILTER)" $(GO_MOD_PATH) $(GOLANG_VERSION)
+	$(BASE_DIRECTORY)/build/lib/gather_licenses.sh $(REPO) $(MAKE_ROOT)/$(OUTPUT_DIR)/$(BINARY_TARGET) "$(LICENSE_PACKAGE_FILTER)" $(GO_MOD_PATH) $(GOLANG_VERSION) $(LICENSE_THRESHOLD)
 
 .PHONY: gather-licenses
 gather-licenses: $(GATHER_LICENSES_TARGETS)
@@ -589,12 +601,12 @@ endif
 
 .PHONY: upload-artifacts
 upload-artifacts: s3-artifacts
-	$(BASE_DIRECTORY)/build/lib/upload_artifacts.sh $(ARTIFACTS_PATH) $(ARTIFACTS_BUCKET) $(ARTIFACTS_UPLOAD_PATH) $(BUILD_IDENTIFIER) $(GIT_HASH) $(LATEST) $(UPLOAD_DRY_RUN)
+	$(BASE_DIRECTORY)/build/lib/upload_artifacts.sh $(ARTIFACTS_PATH) $(ARTIFACTS_BUCKET) $(ARTIFACTS_UPLOAD_PATH) $(BUILD_IDENTIFIER) $(GIT_HASH) $(LATEST) $(UPLOAD_DRY_RUN) $(UPLOAD_DO_NOT_DELETE)
 
 .PHONY: s3-artifacts
 s3-artifacts: tarballs
 	$(BUILD_LIB)/create_release_checksums.sh $(ARTIFACTS_PATH)
-	$(BUILD_LIB)/validate_artifacts.sh $(MAKE_ROOT) $(ARTIFACTS_PATH) $(GIT_TAG) $(FAKE_ARM_BINARIES_FOR_VALIDATION) $(IMAGE_FORMAT) $(IMAGE_OS)
+	$(BUILD_LIB)/validate_artifacts.sh $(MAKE_ROOT) $(ARTIFACTS_PATH) $(GIT_TAG) $(FAKE_ARM_BINARIES_FOR_VALIDATION) $(FAKE_AMD_BINARIES_FOR_VALIDATION) $(IMAGE_FORMAT) $(IMAGE_OS)
 
 
 ### Checksum Targets
@@ -615,9 +627,15 @@ endif
 
 ifneq ($(IMAGE_NAMES),)
 .PHONY: local-images images
-local-images: $(LOCAL_IMAGE_TARGETS)
+local-images: clean-job-caches $(LOCAL_IMAGE_TARGETS)
 images: $(IMAGE_TARGETS)
 endif
+
+.PHONY: clean-job-caches
+# space is very limited in presubmit jobs, the image builds can push the total used space over the limit.
+# go-build cache and pkg mod cache handled by target above
+# prune is handled by buildkit.sh
+clean-job-caches: $(and $(findstring presubmit,$(JOB_TYPE)),$(filter true,$(PRUNE_BUILDCTL)),clean-go-cache)
 
 .PHONY: %/images/push %/images/amd64 %/images/arm64
 %/images/push %/images/amd64 %/images/arm64: IMAGE_NAME=$*
@@ -737,7 +755,7 @@ release: $(RELEASE_TARGETS)
 %/release-branches/all:
 	@for version in $(SUPPORTED_K8S_VERSIONS) ; do \
 	    if ! [[ "$(SKIPPED_K8S_VERSIONS)" =~ $$version  ]]; then \
-			$(MAKE) $* RELEASE_BRANCH=$$version; \
+			$(MAKE) $* clean-output RELEASE_BRANCH=$$version; \
 		fi \
 	done;
 
