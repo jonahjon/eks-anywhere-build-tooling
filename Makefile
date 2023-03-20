@@ -17,9 +17,12 @@ PROJECT_PATH_MAP=projects/$(patsubst $(firstword $(subst _, ,$(1)))_%,$(firstwor
 # generate files that are subsequently validated by the CI. If local environments use different 
 # locales to the CI we get unexpected failures that are tricky to debug without knowledge of 
 # locales so we'll explicitly warn here.
-TO_LOWER = $(shell echo $(1) | tr '[:upper:]' '[:lower:]')
+# In a AL2 container image (like builder base), LANG will be empty which is equilvant to posix
+# In a AL2 (or other distro) full instance the LANG will be en-us.UTF-8 which produces different sorts
+# On Mac, LANG will be en-us.UTF-8 but has a fix applied to sort to avoid the difference
 ifeq ($(shell uname -s),Linux)
-  LOCALE := $(call TO_LOWER,$(shell locale | grep LANG | cut -d= -f2 | tr -d '"'))
+  LOCALE:=$(call TO_LOWER,$(shell locale | grep LANG | cut -d= -f2 | tr -d '"'))
+  LOCALE:=$(if $(LOCALE),$(LOCALE),posix)
   ifeq ($(filter c.utf-8 posix,$(LOCALE)),)
     $(warning WARNING: Environment locale set to $(LANG). On Linux systems this may create \
 	non-deterministic behavior when running generation recipes. If the CI fails validation try \
@@ -48,8 +51,7 @@ add-generated-help-block: $(addprefix add-generated-help-block-project-, $(ALL_P
 .PHONY: attribution-files-project-%
 attribution-files-project-%:
 	$(eval PROJECT_PATH=$(call PROJECT_PATH_MAP,$*))
-	build/update-attribution-files/make_attribution.sh $(PROJECT_PATH) attribution
-	$(if $(findstring periodic,$(JOB_TYPE)),rm -rf /root/.cache/go-build /home/prow/go/pkg/mod $(PROJECT_PATH)/_output,)
+	$(MAKE) -C $(PROJECT_PATH) all-attributions
 
 .PHONY: attribution-files
 attribution-files: $(addprefix attribution-files-project-, $(ALL_PROJECTS))
@@ -58,16 +60,15 @@ attribution-files: $(addprefix attribution-files-project-, $(ALL_PROJECTS))
 .PHONY: checksum-files-project-%
 checksum-files-project-%:
 	$(eval PROJECT_PATH=$(call PROJECT_PATH_MAP,$*))
-	build/update-attribution-files/make_attribution.sh $(PROJECT_PATH) checksums
-	$(if $(findstring periodic,$(JOB_TYPE)),rm -rf /root/.cache/go-build /home/prow/go/pkg/mod && make -C $(PROJECT_PATH) clean && buildctl prune --all,)
+	$(MAKE) -C $(PROJECT_PATH) all-checksums
 
 .PHONY: update-checksum-files
 update-checksum-files: $(addprefix checksum-files-project-, $(ALL_PROJECTS))
+	build/lib/update_go_versions.sh
 	build/update-attribution-files/create_pr.sh
 
 .PHONY: update-attribution-files
 update-attribution-files: add-generated-help-block attribution-files
-	build/lib/update_go_versions.sh
 	build/update-attribution-files/create_pr.sh
 
 .PHONY: run-target-in-docker
@@ -99,6 +100,7 @@ generate-project-list:
 .PHONY: generate-staging-buildspec
 generate-staging-buildspec:
 	build/lib/generate_staging_buildspec.sh $(BASE_DIRECTORY) "$(ALL_PROJECTS)" "$(BASE_DIRECTORY)/release/staging-build.yml"
+	build/lib/generate_staging_buildspec.sh $(BASE_DIRECTORY) "$(ALL_PROJECTS)" "$(BASE_DIRECTORY)/release/checksums-build.yml" true EXCLUDE_FROM_CHECKSUMS_BUILDSPEC CHECKSUMS_BUILDSPECS false buildspecs/checksums-pr-buildspec.yml
 	build/lib/generate_staging_buildspec.sh $(BASE_DIRECTORY) "aws_bottlerocket-bootstrap" "$(BASE_DIRECTORY)/projects/aws/bottlerocket-bootstrap/buildspecs/batch-build.yml" true
 	build/lib/generate_staging_buildspec.sh $(BASE_DIRECTORY) "kubernetes_cloud-provider-vsphere" "$(BASE_DIRECTORY)/projects/kubernetes/cloud-provider-vsphere/buildspecs/batch-build.yml" true
 	build/lib/generate_staging_buildspec.sh $(BASE_DIRECTORY) "kubernetes-sigs_kind" "$(BASE_DIRECTORY)/projects/kubernetes-sigs/kind/buildspecs/batch-build.yml" true
@@ -109,9 +111,9 @@ generate: generate-project-list generate-staging-buildspec
 
 .PHONY: validate-generated
 validate-generated: generate
-	@if [ "$$(git status --porcelain -- UPSTREAM_PROJECTS.yaml release/staging-build.yml **/batch-build.yml | wc -l)" -gt 0 ]; then \
-		echo "Error: Generated files, UPSTREAM_PROJECTS.yaml release/staging-build.yml, do not match expected. Please run `make generate` to update"; \
-		git diff -- UPSTREAM_PROJECTS.yaml release/staging-build.yml **/batch-build.yml; \
+	@if [ "$$(git status --porcelain -- UPSTREAM_PROJECTS.yaml release/staging-build.yml release/checksums-build.yml **/batch-build.yml | wc -l)" -gt 0 ]; then \
+		echo "Error: Generated files, UPSTREAM_PROJECTS.yaml release/staging-build.yml release/checksums-build.yml batch-build.yml, do not match expected. Please run `make generate` to update"; \
+		git diff -- UPSTREAM_PROJECTS.yaml release/staging-build.yml release/checksums-build.yml **/batch-build.yml; \
 		exit 1; \
 	fi
 	build/lib/readme_check.sh

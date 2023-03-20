@@ -16,6 +16,11 @@
 BUILD_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/" && pwd -P)"
 source "${BUILD_ROOT}/eksd_releases.sh"
 
+if [ -n "${OUTPUT_DEBUG_LOG:-}" ]; then
+    set -x
+fi
+
+
 function build::common::ensure_tar() {
   if [[ -n "${TAR:-}" ]]; then
     return
@@ -45,7 +50,7 @@ function build::common::create_tarball() {
   local -r stagingdir=$2
   local -r repository=$3
 
-  "${TAR}" czf "${tarfile}" -C "${stagingdir}" $repository --owner=0 --group=0
+  build::common::echo_and_run "${TAR}" czf "${tarfile}" -C "${stagingdir}" $repository --owner=0 --group=0
 }
 
 # Generate shasum of tarballs. $1 is the directory of the tarballs.
@@ -80,18 +85,18 @@ function build::common::upload_artifacts() {
   local -r do_not_delete=$8
   
   if [ "$dry_run" = "true" ]; then
-    aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --recursive --dryrun
-    aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --recursive --dryrun
+    build::common::echo_and_run aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --recursive --dryrun
+    build::common::echo_and_run aws s3 cp "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --recursive --dryrun
   else
     # Upload artifacts to s3 
     # 1. To proper path on s3 with buildId-githash
     # 2. Latest path to indicate the latest build, with --delete option to delete stale files in the dest path
-    aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --acl public-read
+    build::common::echo_and_run aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$buildidentifier"-"$githash"/artifacts --acl public-read
 
     if [ "$do_not_delete" = "true" ]; then
-      aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --acl public-read
+      build::common::echo_and_run aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --acl public-read
     else
-      aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --delete --acl public-read
+      build::common::echo_and_run aws s3 sync "$artifactspath" "$artifactsbucket"/"$projectpath"/"$latesttag" --delete --acl public-read
     fi
   fi
 }
@@ -112,7 +117,9 @@ function build::gather_licenses() {
 
   # the version of go used here must be the version go-licenses was installed with
   # by default we use 1.16, but due to changes in 1.17, there are some changes that require using 1.17
-  if [ "$golang_version" == "1.19" ]; then
+  if [ "$golang_version" == "1.20" ]; then
+    build::common::use_go_version 1.20
+  elif [ "$golang_version" == "1.19" ]; then
     build::common::use_go_version 1.19
   elif [ "$golang_version" == "1.18" ]; then
     build::common::use_go_version 1.18
@@ -134,15 +141,15 @@ function build::gather_licenses() {
   # data about each dependency to generate the amazon approved attribution.txt files
   # go-deps is needed for module versions
   # go-licenses are all the dependencies found from the module(s) that were passed in via patterns
-  go list -deps=true -json ./... | jq -s ''  > "${outputdir}/attribution/go-deps.json"
+  build::common::echo_and_run go list -deps=true -json ./... | jq -s ''  > "${outputdir}/attribution/go-deps.json"
 
   # go-licenses can be a bit noisy with its output and lot of it can be confusing 
   # the following messages are safe to ignore since we do not need the license url for our process
   NOISY_MESSAGES="cannot determine URL for|Error discovering license URL|unsupported package host|contains non-Go code|has empty version|vendor.*\.(h|s)$"
  
-  go-licenses save --confidence_threshold $threshold  --force $patterns --save_path="${outputdir}/LICENSES" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
+  build::common::echo_and_run go-licenses save --confidence_threshold $threshold --force $patterns --save_path "${outputdir}/LICENSES" 2> >(grep -vE "$NOISY_MESSAGES")
   
-  go-licenses csv --confidence_threshold $threshold $patterns > "${outputdir}/attribution/go-license.csv" 2>  >(grep -vE "$NOISY_MESSAGES" >&2)
+  build::common::echo_and_run go-licenses csv --confidence_threshold $threshold $patterns 2> >(grep -vE "$NOISY_MESSAGES") > "${outputdir}/attribution/go-license.csv"  
 
   if cat "${outputdir}/attribution/go-license.csv" | grep -q "^vendor\/golang.org\/x"; then
       echo " go-licenses created a file with a std golang package (golang.org/x/*)"
@@ -222,7 +229,7 @@ function build::generate_attribution(){
     exit 1
   fi
 
-  generate-attribution $root_module_name $project_root $golang_version_tag $output_directory 
+  build::common::echo_and_run generate-attribution $root_module_name $project_root $golang_version_tag $output_directory 
   cp -f "${output_directory}/attribution/ATTRIBUTION.txt" $attribution_file
 }
 
@@ -352,7 +359,7 @@ function retry() {
     "$@" && break || {
       if [[ $n -lt $max ]]; then
         ((n++))
-        echo "Command failed. Attempt $n/$max:"
+        >&2 echo "Command failed. Attempt $n/$max:"
         sleep $delay;
       else
         fail "The command has failed after $n attempts."
@@ -388,6 +395,11 @@ function build::docker::retry_pull() {
   retry docker pull "$@"
 }
 
+function build::common::echo_and_run() {
+  >&2 echo "($(pwd)) \$ $*"
+  "$@"
+}
+
 function build::bottlerocket::check_release_availablilty() {
   local release_file=$1
   local release_channel=$2
@@ -398,4 +410,11 @@ function build::bottlerocket::check_release_availablilty() {
     retval=1
   fi
   echo $retval
+}
+
+function build::jq::update_in_place() {
+  local json_file=$1
+  local jq_query=$2
+
+  cat $json_file | jq -S ''"$jq_query"'' > $json_file.tmp && mv $json_file.tmp $json_file
 }

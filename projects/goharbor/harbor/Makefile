@@ -1,10 +1,10 @@
 BASE_DIRECTORY:=$(shell git rev-parse --show-toplevel)
 GIT_TAG:=$(shell cat GIT_TAG)
-GOLANG_VERSION?="1.17"
+GOLANG_VERSION?="1.19"
 REGISTRYVERSION=2.8.1-patch-redis
 NOTARYVERSION=v0.6.1
-TRIVYVERSION=v0.28.1
-TRIVYADAPTERVERSION=v0.29.0
+TRIVYVERSION=v0.37.3
+TRIVYADAPTERVERSION=v0.30.7
 CHARTMUSEUM_SRC_TAG=v0.14.0
 CHARTMUSEUMVERSION=$(CHARTMUSEUM_SRC_TAG)-redis
 
@@ -62,6 +62,7 @@ HELM_DESTINATION_REPOSITORY=harbor/$(HELM_SOURCE_REPOSITORY)
 HELM_IMAGE_LIST=harbor/harbor-core harbor/harbor-db harbor/harbor-log harbor/harbor-exporter harbor/harbor-jobservice harbor/harbor-nginx harbor/harbor-portal harbor/harbor-redis harbor/harbor-registry harbor/harbor-registryctl harbor/harbor-trivy
 
 EXCLUDE_FROM_STAGING_BUILDSPEC=true
+BUILDSPEC_COMPUTE_TYPE=BUILD_GENERAL1_LARGE
 
 include $(BASE_DIRECTORY)/Common.mk
 

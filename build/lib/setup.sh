@@ -19,7 +19,7 @@ if [ ! -d "/root/.docker" ]; then
     mkdir -p /root/.docker
 fi
 
-mv config/docker-ecr-config.json /root/.docker/config.json
+cp config/docker-ecr-config.json /root/.docker/config.json
 git config ${GIT_CONFIG_SCOPE} credential.helper '!aws codecommit credential-helper $@'
 git config ${GIT_CONFIG_SCOPE} credential.UseHttpPath true
 
@@ -28,4 +28,4 @@ wait::for::dockerd
 
 build::docker::retry_pull public.ecr.aws/eks-distro-build-tooling/binfmt-misc:qemu-v7.0.0
 
-docker run --privileged --rm public.ecr.aws/eks-distro-build-tooling/binfmt-misc:qemu-v7.0.0 --install aarch64
+docker run --privileged --rm public.ecr.aws/eks-distro-build-tooling/binfmt-misc:qemu-v7.0.0 --install aarch64,amd64
