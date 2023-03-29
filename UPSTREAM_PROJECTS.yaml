@@ -32,10 +32,10 @@ projects:
     repos:
       - name: etcdadm-bootstrap-provider
         versions:
-          - tag: v1.0.7
+          - tag: v1.0.7-rc3
       - name: etcdadm-controller
         versions:
-          - tag: v1.0.6
+          - tag: v1.0.6-rc2
       - name: rolesanywhere-credential-helper
         versions:
           - tag: v1.0.4
@@ -68,7 +68,7 @@ projects:
     repos:
       - name: emissary
         versions:
-          - tag: v3.3.0
+          - tag: v3.5.1
   - org: envoyproxy
     repos:
       - name: envoy
@@ -144,7 +144,7 @@ projects:
           - tag: v1.26.0
       - name: etcdadm
         versions:
-          - commit: 5b496a72af3d80d64a16a650c85ce9a5882bc014
+          - commit: f089d308442c18f487a52d09fd067ae9ac7cd8f2
       - name: image-builder
         versions:
           - commit: ef9fed11d164c58dcb9e56699c56b0fe953f40d9
@@ -206,7 +206,7 @@ projects:
           - commit: 6c0f0d437bde2c836d90b000312c8b25fa1b65e1
       - name: rufio
         versions:
-          - tag: v0.2.1
+          - tag: v0.3.0
       - name: tink
         versions:
           - tag: v0.8.0

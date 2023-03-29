@@ -6,8 +6,13 @@ REPO_OWNER=torvalds
 REPO_SPARSE_CHECKOUT=tools lib/bootconfig.c include/linux/bootconfig.h
 
 SIMPLE_CREATE_BINARIES=false
-BINARY_TARGETS=$(OUTPUT_BIN_DIR)/linux-amd64/tools/bootconfig
-BINARY_PLATFORMS=linux/amd64
+
+# this is a native build which we can not cross compile
+# ensure we are building to a directory based on the current
+# host platform to avoid ever creating a different arch'd
+# binary in the wrong folder
+BINARY_PLATFORMS=$(BUILDER_PLATFORM)
+BINARY_TARGETS=$(OUTPUT_BIN_DIR)/$(subst /,-,$(BINARY_PLATFORMS))/tools/bootconfig
 
 HAS_LICENSES=false
 
@@ -19,6 +24,9 @@ IMAGE_NAMES=
 
 # this project never builds arm, dont fake it in presubmits
 FAKE_ARM_BINARIES_FOR_VALIDATION=false
+
+# we cant cross build this so must build on an amd instance
+BUILDSPEC_PLATFORM=LINUX_CONTAINER
 
 include $(BASE_DIRECTORY)/Common.mk
 
