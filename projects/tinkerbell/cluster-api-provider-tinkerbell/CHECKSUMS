@@ -1,2 +1,2 @@
-ec2b358b34b54aa574d70e317f1ba18274da6cc9801608a29bb9f5b17521883d  _output/bin/cluster-api-provider-tinkerbell/linux-amd64/manager
-f30ef5eca502cdb1e132b1dc7d0400c35819e413996aae768673db404b6d80f8  _output/bin/cluster-api-provider-tinkerbell/linux-arm64/manager
+fd3925e0a1784929763caa464eb79caaddb77b13cd725356475f4fa40cf6da75  _output/bin/cluster-api-provider-tinkerbell/linux-amd64/manager
+a7c4cb1a3b892b55aa11f68e4e7bc632d8414984c3d135f1776c2c3b9c278986  _output/bin/cluster-api-provider-tinkerbell/linux-arm64/manager

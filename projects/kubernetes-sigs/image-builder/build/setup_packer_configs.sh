@@ -52,7 +52,7 @@ function env_and_envsubst()
 echo "Loading EKSD manifest from: $(build::eksd_releases::get_release_yaml_url $RELEASE_BRANCH)"
 build::eksd_releases::load_release_yaml $RELEASE_BRANCH > /dev/null
 
-echo "Loading EKSA manifest from: $(build::eksa_releases::get_eksa_release_manifest_url)"
+echo "Loading EKSA manifest from: $(build::eksa_releases::get_eksa_release_manifest_url $DEV_RELEASE $LATEST_TAG)"
 build::eksa_releases::load_bundle_manifest $DEV_RELEASE $LATEST_TAG > /dev/null
 
 OUTPUT_CONFIGS="$MAKE_ROOT/_output/$RELEASE_BRANCH/$IMAGE_FORMAT/$IMAGE_OS/config"
@@ -83,7 +83,6 @@ env_and_envsubst '$PAUSE_IMAGE:$HTTP_PROXY:$HTTPS_PROXY:$NO_PROXY' \
     "$MAKE_ROOT/packer/config/common.json.tmpl" \
     "$OUTPUT_CONFIGS/common.json"
 
-
 export IMAGE_REPO=$(build::eksd_releases::get_eksd_image_repo $RELEASE_BRANCH)
 export KUBERNETES_ASSET_BASE_URL=$(build::eksd_releases::get_eksd_kubernetes_asset_base_url $RELEASE_BRANCH)
 export KUBERNETES_VERSION=$(build::eksd_releases::get_eksd_component_version "kubernetes" $RELEASE_BRANCH)
@@ -99,7 +98,16 @@ export ETCDADM_VERSION='v0.1.5'
 export CRICTL_URL=${CRICTL_URL:-$(build::eksa_releases::get_eksa_component_asset_url 'eksD' 'crictl' $RELEASE_BRANCH $DEV_RELEASE $LATEST_TAG)}
 export CRICTL_SHA256="${CRICTL_SHA256:-$(build::eksa_releases::get_eksa_component_asset_artifact_checksum 'eksD' 'crictl' 'sha256' $RELEASE_BRANCH $DEV_RELEASE $LATEST_TAG)}"
 
-env_and_envsubst '$IMAGE_REPO:$KUBERNETES_ASSET_BASE_URL:$KUBERNETES_VERSION:$KUBERNETES_SERIES:$CRICTL_URL:$CRICTL_SHA256:$ETCD_HTTP_SOURCE:$ETCD_VERSION:$ETCDADM_HTTP_SOURCE:$ETCD_SHA256:$ETCDADM_VERSION:$KUBERNETES_FULL_VERSION' \
+export CONTAINERD_URL=${CONTAINERD_URL:-$(build::eksa_releases::get_eksa_component_asset_url 'eksD' 'containerd' $RELEASE_BRANCH $DEV_RELEASE $LATEST_TAG)}
+export CONTAINERD_SHA256="${CONTAINERD_SHA256:-$(build::eksa_releases::get_eksa_component_asset_artifact_checksum 'eksD' 'containerd' 'sha256' $RELEASE_BRANCH $DEV_RELEASE $LATEST_TAG)}"
+# TEMP - workaround released image-builders using the main branch
+# remove this before next release and after patch image builder to use specific release tag instead of main
+if [[ "$CONTAINERD_URL" == "null" ]]; then
+    export CONTAINERD_URL="https://github.com/containerd/containerd/releases/download/v1.6.19/cri-containerd-cni-1.6.19-linux-amd64.tar.gz"
+    export CONTAINERD_SHA256="0457907ec410c2172829f6d1808f43fd2b83395a242bcb677cfe26320df13d5d"
+fi
+
+env_and_envsubst '$IMAGE_REPO:$KUBERNETES_ASSET_BASE_URL:$KUBERNETES_VERSION:$KUBERNETES_SERIES:$CRICTL_URL:$CRICTL_SHA256:$CONTAINERD_URL:$CONTAINERD_SHA256:$ETCD_HTTP_SOURCE:$ETCD_VERSION:$ETCDADM_HTTP_SOURCE:$ETCD_SHA256:$ETCDADM_VERSION:$KUBERNETES_FULL_VERSION' \
     "$MAKE_ROOT/packer/config/kubernetes.json.tmpl" \
     "$OUTPUT_CONFIGS/kubernetes.json"
 

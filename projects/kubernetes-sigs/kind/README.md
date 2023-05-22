@@ -1,5 +1,5 @@
 ## **Kind**
-![Version](https://img.shields.io/badge/version-v0.17.0-blue)
+![Version](https://img.shields.io/badge/version-v0.18.0-blue)
 ![Build Status](https://codebuild.us-west-2.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiVkgvQm93WHUvUWJ1U2ZhSG9JTUJNMFdjdGtwSkIyRCt1azM0THYxcWYweC8rM2lHRmNYMXI0QkVPUm4yZ0JZZ1c4RzdMeTJ3dGtpREdYeFpvTEhtc2FnPSIsIml2UGFyYW1ldGVyU3BlYyI6Im9GV2EzRGZQNVZ5c25kTmoiLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=main)
 
 [Kind](https://github.com/kubernetes-sigs/kind) is a tool for running local Kubernetes clusters using Docker container "nodes". kind bootstraps each "node" with `kubeadm`. kind consists of:
@@ -53,14 +53,14 @@ review carefully and if there are questions about changes necessary to eks-anywh
 and/or automatically update between eks-anywhere version reach out to @jaxesn.
 1. Update the `GIT_TAG` file to have the new desired version based on the upstream release tags.
 1. Compare the old tag to the new, looking specifically for Makefile changes. 
-ex: [0.14.0 compared to 0.17.0](https://github.com/kubernetes-sigs/kind/compare/v0.14.0...v0.17.0). Check the `kind` target for
+ex: [0.17.0 compared to 0.18.0](https://github.com/kubernetes-sigs/kind/compare/v0.17.0...v0.18.0). Check the `kind` target for
 any build flag changes, tag changes, dependencies, etc in the `Makefile` in the root of the repo.  Pay close attention to
 `images/base/Dockerfile` for changes when updating the patch.  Update constants in [node-image-build-args.sh](./build/node-image-build-args.sh#48).
 If new yum packages are added to the base image, update the [minimal-base-kind](https://github.com/aws/eks-distro-build-tooling/blob/main/eks-distro-base/Dockerfile.minimal-base-kind)
 image to include it (this is not a blocker for updating). Review changes to [buildcontext.go](https://github.com/kubernetes-sigs/kind/blob/main/pkg/build/nodeimage/buildcontext.go)
 closely to ensure there are no changes neccessary in our build scripts.
 1. Verify the golang version has not changed. The version specified in `.go-version` should be the source of truth.
-1. Update checksums and attribution using `make update-attribution-checksums-docker` from the root of the repo.
+1. Update checksums and attribution using `make run-attribution-checksums-in-docker` from the root of the repo.
 1. Validate images build locally (will take a while) using the steps above.
 1. Run `make create-kind-cluster-amd64 RELEASE_BRANCH=1-X` to ensure cluster creation works with the new image.
 1. Update the version at the top of this Readme.

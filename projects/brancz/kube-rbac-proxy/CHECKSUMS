@@ -1,2 +1,2 @@
-cd18e9126f8ab94e41e694d12e7d99588ebe7fd4ae1e96ef9738c870812fed39  _output/bin/kube-rbac-proxy/linux-amd64/kube-rbac-proxy
-9083233a6e694a97b5bbc03c0637418d2302e9409f332a28513cd214baddc983  _output/bin/kube-rbac-proxy/linux-arm64/kube-rbac-proxy
+f84aed4fa2d60958149b05388722bc69007b8dccb15a6c581164dc49c6e44563  _output/bin/kube-rbac-proxy/linux-amd64/kube-rbac-proxy
+d9bad8dd81e3b53a9b4a2eab4d87b4e824c90f8954e016e50943690f2b9b1ade  _output/bin/kube-rbac-proxy/linux-arm64/kube-rbac-proxy

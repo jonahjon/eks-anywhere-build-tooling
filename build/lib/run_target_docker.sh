@@ -22,57 +22,78 @@ TARGET="$2"
 IMAGE_REPO="${3:-}"
 RELEASE_BRANCH="${4:-}"
 ARTIFACTS_BUCKET="${5:-$ARTIFACTS_BUCKET}"
+BASE_DIRECTORY="${6:-}"
+GO_MOD_CACHE="${7:-}"
+REMOVE="${8:-false}"
+PLATFORM="${9:-}"
 
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-MAKE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 source "${SCRIPT_ROOT}/common.sh"
 
-echo "****************************************************************"
-echo "A docker container with the name eks-a-builder will be launched."
-echo "It will be left running to support running consecutive runs."
-echo "Run 'make stop-docker-builder' when you are done to stop it."
-echo "****************************************************************"
+# Since we may actually be running docker in docker here for cgo builds
+# we need to have the host path base_dir and go_mod_cache and netrc
+DOCKER_RUN_BASE_DIRECTORY="${DOCKER_RUN_BASE_DIRECTORY:-$BASE_DIRECTORY}"
+DOCKER_RUN_GO_MOD_CACHE="${DOCKER_RUN_GO_MOD_CACHE:-$GO_MOD_CACHE}"
 
-if ! docker ps -f name=eks-a-builder | grep -w eks-a-builder; then
-	build::docker::retry_pull public.ecr.aws/eks-distro-build-tooling/builder-base:latest
+MAKE_VARS="IMAGE_REPO=$IMAGE_REPO ARTIFACTS_BUCKET=$ARTIFACTS_BUCKET"
+
+function remove_container()
+{
+	docker rm -vf $CONTAINER_ID
+}
+
+SKIP_RUN="false"
+NAME=""
+if [[ "$REMOVE" == "false" ]]; then
+	echo "****************************************************************"
+	echo "A docker container with the name eks-a-builder will be launched."
+	echo "It will be left running to support running consecutive runs."
+	echo "Run 'make stop-docker-builder' when you are done to stop it."
+	echo "****************************************************************"
+
+	NAME="--name eks-a-builder"
+
+	if docker ps -f name=eks-a-builder | grep -w eks-a-builder; then
+		SKIP_RUN="true"
+		CONTAINER_ID="eks-a-builder"
+	fi
+else
+	trap "remove_container" EXIT
+fi
+
+IMAGE="public.ecr.aws/eks-distro-build-tooling/builder-base:latest"
+PLATFORM_ARG=""
+
+if [[ -n "$PLATFORM" ]]; then
+	DIGEST=$(docker buildx imagetools inspect --raw public.ecr.aws/eks-distro-build-tooling/builder-base:latest | jq -r ".manifests[] | select(.platform.architecture == \"${PLATFORM#linux/}\") | .digest")
+	IMAGE="public.ecr.aws/eks-distro-build-tooling/builder-base@$DIGEST"
+	PLATFORM_ARG="--platform $PLATFORM"
+	MAKE_VARS=" BINARY_PLATFORMS=$PLATFORM"
+fi
+
+if [[ "$SKIP_RUN" == "false" ]]; then
+	build::docker::retry_pull $IMAGE
 
 	NETRC=""
 	if [ -f $HOME/.netrc ]; then
-		NETRC="--mount type=bind,source=$HOME/.netrc,target=/root/.netrc"
+		DOCKER_RUN_NETRC="${DOCKER_RUN_NETRC:-$HOME/.netrc}"
+		NETRC="--mount type=bind,source=$DOCKER_RUN_NETRC,target=/root/.netrc"
+	else
+		DOCKER_RUN_NETRC=""
 	fi
 
-	docker run -d --name eks-a-builder --privileged $NETRC -e GOPROXY=$GOPROXY --entrypoint sleep \
-		public.ecr.aws/eks-distro-build-tooling/builder-base:latest  infinity 
+	mkdir -p $DOCKER_RUN_GO_MOD_CACHE
+	CONTAINER_ID=$(build::common::echo_and_run docker run -d $NAME --privileged $NETRC $PLATFORM_ARG \
+		--mount type=bind,source=$DOCKER_RUN_BASE_DIRECTORY,target=/eks-anywhere-build-tooling \
+		--mount type=bind,source=$DOCKER_RUN_GO_MOD_CACHE,target=/mod-cache \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-e GOPROXY=${GOPROXY:-} -e GOMODCACHE=/mod-cache -e DOCKER_RUN_BASE_DIRECTORY=$DOCKER_RUN_BASE_DIRECTORY -e DOCKER_RUN_GO_MOD_CACHE=$DOCKER_RUN_GO_MOD_CACHE -e DOCKER_RUN_NETRC=$DOCKER_RUN_NETRC \
+		--entrypoint sleep $IMAGE infinity)
+
+	docker exec -it $CONTAINER_ID git config --global --add safe.directory /eks-anywhere-build-tooling
 fi
 
-EXTRA_INCLUDES=""
-PROJECT_DEPENDENCIES=$(make --no-print-directory -C $MAKE_ROOT/projects/$PROJECT var-value-PROJECT_DEPENDENCIES RELEASE_BRANCH=$(build::eksd_releases::get_release_branch))
-if [ -n "$PROJECT_DEPENDENCIES" ]; then
-	DEPS=(${PROJECT_DEPENDENCIES// / })
-	for dep in "${DEPS[@]}"; do
-		DEP_PRODUCT="$(cut -d/ -f1 <<< $dep)"
-		DEP_ORG="$(cut -d/ -f2 <<< $dep)"
-		DEP_REPO="$(cut -d/ -f3 <<< $dep)"
 
-		if [[ "$DEP_PRODUCT" == "eksd" ]]; then
-			continue
-		fi
-
-		EXTRA_INCLUDES+=" --include=projects/$DEP_ORG/$DEP_REPO/***"
-	done
-fi
-
-rsync -e 'docker exec -i' -t -rm --exclude='.git/***' \
-	--exclude="projects/$PROJECT/_output/***" --exclude="projects/$PROJECT/$(basename $PROJECT)/***" \
-	--include="projects/$PROJECT/***" --include="projects/kubernetes-sigs/image-builder/BOTTLEROCKET_RELEASES" \
-	--include="release/SUPPORTED_RELEASE_BRANCHES" --include="projects/kubernetes-sigs/cri-tools/GIT_TAG" $EXTRA_INCLUDES \
-	--include='*/' --exclude='projects/***' $MAKE_ROOT/ eks-a-builder:/eks-anywhere-build-tooling
-
-# Need so git properly finds the root of the repo
-CURRENT_HEAD="$(cat $MAKE_ROOT/.git/HEAD | awk '{print $2}')"
-docker exec -it eks-a-builder mkdir -p /eks-anywhere-build-tooling/.git/{refs,objects} /eks-anywhere-build-tooling/.git/$(dirname $CURRENT_HEAD)
-docker cp $MAKE_ROOT/.git/HEAD eks-a-builder:/eks-anywhere-build-tooling/.git
-docker cp $MAKE_ROOT/.git/$CURRENT_HEAD eks-a-builder:/eks-anywhere-build-tooling/.git/$CURRENT_HEAD
-
-docker exec -it eks-a-builder make $TARGET -C /eks-anywhere-build-tooling/projects/$PROJECT RELEASE_BRANCH=$RELEASE_BRANCH IMAGE_REPO=$IMAGE_REPO ARTIFACTS_BUCKET=$ARTIFACTS_BUCKET
+build::common::echo_and_run docker exec -e RELEASE_BRANCH=$RELEASE_BRANCH -it $CONTAINER_ID \
+	make $TARGET -C /eks-anywhere-build-tooling/projects/$PROJECT $MAKE_VARS

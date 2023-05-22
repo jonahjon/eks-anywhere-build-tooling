@@ -65,7 +65,7 @@ https://github.com/spf13/cobra
 ** github.com/vmware-tanzu/vm-operator-api/api/v1alpha1; version v0.1.4-0.20201118171008-5ca641b0e126 --
 https://github.com/vmware-archive/vm-operator-api
 
-** github.com/vmware/govmomi; version v0.27.3 --
+** github.com/vmware/govmomi; version v0.30.2 --
 https://github.com/vmware/govmomi
 
 ** go.etcd.io/etcd/api/v3; version v3.5.4 --
@@ -134,7 +134,7 @@ https://github.com/kubernetes/client-go
 ** k8s.io/cloud-provider; version v0.25.2 --
 https://github.com/kubernetes/cloud-provider
 
-** k8s.io/cloud-provider-vsphere; version v1.25.0 --
+** k8s.io/cloud-provider-vsphere; version v1.25.1 --
 https://github.com/kubernetes/cloud-provider-vsphere
 
 ** k8s.io/component-base; version v0.25.2 --
@@ -793,7 +793,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------
 
-** github.com/google/uuid; version v1.2.0 --
+** github.com/google/uuid; version v1.3.0 --
 https://github.com/google/uuid
 
 Copyright (c) 2009,2014 Google Inc. All rights reserved.
@@ -1054,35 +1054,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------
 
-** github.com/vmware/govmomi/vim25/xml; version v0.27.3 --
+** github.com/vmware/govmomi/vim25/xml; version v0.30.2 --
 https://github.com/vmware/govmomi
 
-** golang.org/go; version go1.19.7 --
+** golang.org/go; version go1.19.9 --
 https://github.com/golang/go
 
 ** golang.org/x/crypto; version v0.0.0-20220315160706-3147a52a75dd --
-https://go.googlesource.com/crypto
+https://golang.org/x/crypto
 
 ** golang.org/x/net; version v0.0.0-20220722155237-a158d28d115b --
-https://go.googlesource.com/net
+https://golang.org/x/net
 
 ** golang.org/x/oauth2; version v0.0.0-20211104180415-d3ed0bb246c8 --
-https://go.googlesource.com/oauth2
+https://golang.org/x/oauth2
 
 ** golang.org/x/sync/singleflight; version v0.0.0-20220722155255-886fb9371eb4 --
-https://go.googlesource.com/sync
+https://golang.org/x/sync
 
 ** golang.org/x/sys; version v0.0.0-20220722155257-8c9f86f7a55f --
-https://go.googlesource.com/sys
+https://golang.org/x/sys
 
 ** golang.org/x/term; version v0.0.0-20210927222741-03fcf44c2211 --
-https://go.googlesource.com/term
+https://golang.org/x/term
 
 ** golang.org/x/text; version v0.3.7 --
-https://go.googlesource.com/text
+https://golang.org/x/text
 
 ** golang.org/x/time/rate; version v0.0.0-20220609170525-579cf78fd858 --
-https://go.googlesource.com/time
+https://golang.org/x/time
 
 ** k8s.io/apimachinery/third_party/forked/golang; version v0.25.2 --
 https://github.com/kubernetes/apimachinery

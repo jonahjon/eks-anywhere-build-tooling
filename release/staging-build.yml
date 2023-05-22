@@ -25,16 +25,6 @@ batch:
         variables:
           PROJECT_PATH: projects/apache/cloudstack-cloudmonkey
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/apache.cloudstack-cloudmonkey
-    - identifier: aws_bottlerocket_bootstrap_1_22
-      buildspec: buildspec.yml
-      depend-on:
-        - kubernetes_sigs_etcdadm
-      env:
-        type: ARM_CONTAINER
-        compute-type: BUILD_GENERAL1_SMALL
-        variables:
-          PROJECT_PATH: projects/aws/bottlerocket-bootstrap
-          RELEASE_BRANCH: 1-22
     - identifier: aws_bottlerocket_bootstrap_1_23
       buildspec: buildspec.yml
       depend-on:
@@ -75,6 +65,16 @@ batch:
         variables:
           PROJECT_PATH: projects/aws/bottlerocket-bootstrap
           RELEASE_BRANCH: 1-26
+    - identifier: aws_bottlerocket_bootstrap_1_27
+      buildspec: buildspec.yml
+      depend-on:
+        - kubernetes_sigs_etcdadm
+      env:
+        type: ARM_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/aws/bottlerocket-bootstrap
+          RELEASE_BRANCH: 1-27
     - identifier: aws_cluster_api_provider_aws_snow
       buildspec: buildspec.yml
       env:
@@ -171,6 +171,30 @@ batch:
         variables:
           PROJECT_PATH: projects/cilium/cilium
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/cilium.cilium
+    - identifier: containerd_containerd_linux_amd64
+      buildspec: buildspec.yml
+      depend-on:
+        - opencontainers_runc_linux_amd64
+        - opencontainers_runc_linux_arm64
+      env:
+        type: LINUX_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/containerd/containerd
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/containerd.containerd
+          BINARY_PLATFORMS: linux/amd64
+    - identifier: containerd_containerd_linux_arm64
+      buildspec: buildspec.yml
+      depend-on:
+        - opencontainers_runc_linux_amd64
+        - opencontainers_runc_linux_arm64
+      env:
+        type: ARM_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/containerd/containerd
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/containerd.containerd
+          BINARY_PLATFORMS: linux/arm64
     - identifier: distribution_distribution
       buildspec: buildspec.yml
       env:
@@ -218,29 +242,8 @@ batch:
         variables:
           PROJECT_PATH: projects/fluxcd/notification-controller
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/fluxcd.notification-controller
-    - identifier: fluxcd_source_controller_linux_amd64
-      buildspec: buildspecs/binaries.yml
-      env:
-        type: LINUX_CONTAINER
-        compute-type: BUILD_GENERAL1_SMALL
-        variables:
-          PROJECT_PATH: projects/fluxcd/source-controller
-          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/fluxcd.source-controller
-          BINARY_PLATFORMS: linux/amd64
-    - identifier: fluxcd_source_controller_linux_arm64
-      buildspec: buildspecs/binaries.yml
-      env:
-        type: ARM_CONTAINER
-        compute-type: BUILD_GENERAL1_SMALL
-        variables:
-          PROJECT_PATH: projects/fluxcd/source-controller
-          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/fluxcd.source-controller
-          BINARY_PLATFORMS: linux/arm64
     - identifier: fluxcd_source_controller
-      buildspec: projects/fluxcd/source-controller/buildspecs/images.yml
-      depend-on:
-        - fluxcd_source_controller_linux_amd64
-        - fluxcd_source_controller_linux_arm64
+      buildspec: buildspec.yml
       env:
         type: ARM_CONTAINER
         compute-type: BUILD_GENERAL1_SMALL
@@ -271,15 +274,6 @@ batch:
         variables:
           PROJECT_PATH: projects/kubernetes/cloud-provider-aws
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes.cloud-provider-aws
-    - identifier: kubernetes_cloud_provider_vsphere_1_22
-      buildspec: buildspec.yml
-      env:
-        type: ARM_CONTAINER
-        compute-type: BUILD_GENERAL1_SMALL
-        variables:
-          PROJECT_PATH: projects/kubernetes/cloud-provider-vsphere
-          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes.cloud-provider-vsphere
-          RELEASE_BRANCH: 1-22
     - identifier: kubernetes_cloud_provider_vsphere_1_23
       buildspec: buildspec.yml
       env:
@@ -316,6 +310,15 @@ batch:
           PROJECT_PATH: projects/kubernetes/cloud-provider-vsphere
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes.cloud-provider-vsphere
           RELEASE_BRANCH: 1-26
+    - identifier: kubernetes_cloud_provider_vsphere_1_27
+      buildspec: buildspec.yml
+      env:
+        type: ARM_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/kubernetes/cloud-provider-vsphere
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes.cloud-provider-vsphere
+          RELEASE_BRANCH: 1-27
     - identifier: kubernetes_sigs_cluster_api
       buildspec: buildspec.yml
       env:
@@ -356,16 +359,6 @@ batch:
         variables:
           PROJECT_PATH: projects/kubernetes-sigs/etcdadm
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.etcdadm
-    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_22_ova
-      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ova.yml
-      env:
-        type: ARM_CONTAINER
-        compute-type: BUILD_GENERAL1_SMALL
-        variables:
-          PROJECT_PATH: projects/kubernetes-sigs/image-builder
-          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
-          IMAGE_OS: bottlerocket
-          RELEASE_BRANCH: 1-22
     - identifier: kubernetes_sigs_image_builder_bottlerocket_1_23_ova
       buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ova.yml
       env:
@@ -406,8 +399,8 @@ batch:
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
           IMAGE_OS: bottlerocket
           RELEASE_BRANCH: 1-26
-    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_22_raw
-      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/raw.yml
+    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_27_ova
+      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ova.yml
       env:
         type: ARM_CONTAINER
         compute-type: BUILD_GENERAL1_SMALL
@@ -415,7 +408,7 @@ batch:
           PROJECT_PATH: projects/kubernetes-sigs/image-builder
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
           IMAGE_OS: bottlerocket
-          RELEASE_BRANCH: 1-22
+          RELEASE_BRANCH: 1-27
     - identifier: kubernetes_sigs_image_builder_bottlerocket_1_23_raw
       buildspec: projects/kubernetes-sigs/image-builder/buildspecs/raw.yml
       env:
@@ -456,8 +449,8 @@ batch:
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
           IMAGE_OS: bottlerocket
           RELEASE_BRANCH: 1-26
-    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_22_ami
-      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ami.yml
+    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_27_raw
+      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/raw.yml
       env:
         type: ARM_CONTAINER
         compute-type: BUILD_GENERAL1_SMALL
@@ -465,7 +458,7 @@ batch:
           PROJECT_PATH: projects/kubernetes-sigs/image-builder
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
           IMAGE_OS: bottlerocket
-          RELEASE_BRANCH: 1-22
+          RELEASE_BRANCH: 1-27
     - identifier: kubernetes_sigs_image_builder_bottlerocket_1_23_ami
       buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ami.yml
       env:
@@ -506,6 +499,16 @@ batch:
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
           IMAGE_OS: bottlerocket
           RELEASE_BRANCH: 1-26
+    - identifier: kubernetes_sigs_image_builder_bottlerocket_1_27_ami
+      buildspec: projects/kubernetes-sigs/image-builder/buildspecs/ami.yml
+      env:
+        type: ARM_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/kubernetes-sigs/image-builder
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.image-builder
+          IMAGE_OS: bottlerocket
+          RELEASE_BRANCH: 1-27
     - identifier: kubernetes_sigs_kind
       buildspec: buildspecs/binaries.yml
       env:
@@ -514,19 +517,6 @@ batch:
         variables:
           PROJECT_PATH: projects/kubernetes-sigs/kind
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.kind
-    - identifier: kubernetes_sigs_kind_1_22
-      buildspec: buildspecs/images.yml
-      depend-on:
-        - kubernetes_sigs_etcdadm
-        - kubernetes_sigs_cri_tools
-        - rancher_local_path_provisioner
-      env:
-        type: LINUX_CONTAINER
-        compute-type: BUILD_GENERAL1_LARGE
-        variables:
-          PROJECT_PATH: projects/kubernetes-sigs/kind
-          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.kind
-          RELEASE_BRANCH: 1-22
     - identifier: kubernetes_sigs_kind_1_23
       buildspec: buildspecs/images.yml
       depend-on:
@@ -579,6 +569,19 @@ batch:
           PROJECT_PATH: projects/kubernetes-sigs/kind
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.kind
           RELEASE_BRANCH: 1-26
+    - identifier: kubernetes_sigs_kind_1_27
+      buildspec: buildspecs/images.yml
+      depend-on:
+        - kubernetes_sigs_etcdadm
+        - kubernetes_sigs_cri_tools
+        - rancher_local_path_provisioner
+      env:
+        type: LINUX_CONTAINER
+        compute-type: BUILD_GENERAL1_LARGE
+        variables:
+          PROJECT_PATH: projects/kubernetes-sigs/kind
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/kubernetes-sigs.kind
+          RELEASE_BRANCH: 1-27
     - identifier: kubernetes_sigs_vsphere_csi_driver
       buildspec: buildspec.yml
       env:
@@ -595,6 +598,24 @@ batch:
         variables:
           PROJECT_PATH: projects/nutanix-cloud-native/cluster-api-provider-nutanix
           CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/nutanix-cloud-native.cluster-api-provider-nutanix
+    - identifier: opencontainers_runc_linux_amd64
+      buildspec: buildspec.yml
+      env:
+        type: LINUX_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/opencontainers/runc
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/opencontainers.runc
+          BINARY_PLATFORMS: linux/amd64
+    - identifier: opencontainers_runc_linux_arm64
+      buildspec: buildspec.yml
+      env:
+        type: ARM_CONTAINER
+        compute-type: BUILD_GENERAL1_SMALL
+        variables:
+          PROJECT_PATH: projects/opencontainers/runc
+          CLONE_URL: https://git-codecommit.us-west-2.amazonaws.com/v1/repos/opencontainers.runc
+          BINARY_PLATFORMS: linux/arm64
     - identifier: rancher_local_path_provisioner
       buildspec: buildspec.yml
       env:

@@ -9,7 +9,6 @@
 ##@ GIT/Repo Targets
 clone-repo:  ## Clone upstream `cert-manager`
 checkout-repo: ## Checkout upstream tag based on value in GIT_TAG file
-patch-repo: ## Patch upstream repo with patches in patches directory
 
 ##@ Binary Targets
 binaries: ## Build all binaries: `cert-manager-acmesolver cert-manager-cainjector cert-manager-controller cert-manager-webhook cert-manager-ctl` for `linux/amd64 linux/arm64`
@@ -45,6 +44,18 @@ helm/push: ## Build helm chart and push to registry defined in IMAGE_REPO.
 ##@ Checksum Targets
 checksums: ## Update checksums file based on currently built binaries.
 validate-checksums: # Validate checksums of currently built binaries against checksums file.
+all-checksums: ## Update checksums files for all RELEASE_BRANCHes.
+
+##@ Run in Docker Targets
+run-all-attributions-in-docker: ## Run `all-attributions` in docker builder container
+run-all-attributions-checksums-in-docker: ## Run `all-attributions-checksums` in docker builder container
+run-all-checksums-in-docker: ## Run `all-checksums` in docker builder container
+run-attribution-in-docker: ## Run `attribution` in docker builder container
+run-attribution-checksums-in-docker: ## Run `attribution-checksums` in docker builder container
+run-binaries-in-docker: ## Run `binaries` in docker builder container
+run-checksums-in-docker: ## Run `checksums` in docker builder container
+run-clean-in-docker: ## Run `clean` in docker builder container
+run-clean-go-cache-in-docker: ## Run `clean-go-cache` in docker builder container
 
 ##@ Artifact Targets
 tarballs: ## Create tarballs by calling build/lib/simple_create_tarballs.sh unless SIMPLE_CREATE_TARBALLS=false, then tarballs must be defined in project Makefile
@@ -55,6 +66,9 @@ upload-artifacts: # Upload tarballs and other artifacts from ARTIFACTS_PATH to S
 gather-licenses: ## Helper to call $(GATHER_LICENSES_TARGETS) which gathers all licenses
 attribution: ## Generates attribution from licenses gathered during `gather-licenses`.
 attribution-pr: ## Generates PR to update attribution files for projects
+attribution-checksums: ## Update attribution and checksums files.
+all-attributions: ## Update attribution files for all RELEASE_BRANCHes.
+all-attributions-checksums: ## Update attribution and checksums files for all RELEASE_BRANCHes.
 
 ##@ Clean Targets
 clean: ## Removes source and _output directory
@@ -66,7 +80,6 @@ add-generated-help-block: ## Add or update generated help block to document proj
 
 ##@Update Helpers
 run-target-in-docker: ## Run `MAKE_TARGET` using builder base docker container
-update-attribution-checksums-docker: ## Update attribution and checksums using the builder base docker container
 stop-docker-builder: ## Clean up builder base docker container
 generate: ## Update UPSTREAM_PROJECTS.yaml
 update-go-mods: ## Update locally checked-in go sum to assist in vuln scanning

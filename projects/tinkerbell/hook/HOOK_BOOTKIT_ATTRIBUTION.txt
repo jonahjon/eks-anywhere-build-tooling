@@ -20,7 +20,7 @@ https://github.com/opencontainers/go-digest
 ** github.com/opencontainers/image-spec/specs-go; version v1.0.1 --
 https://github.com/opencontainers/image-spec
 
-** github.com/tinkerbell/hook/hook-bootkit; version 03a67729d895635fe3c612e4feca3400b9336cc9 --
+** github.com/tinkerbell/hook/hook-bootkit; version 9d54933a03f2f4c06322969b06caa18702d17f66 --
 https://github.com/tinkerbell/hook/hook-bootkit
 
 ** google.golang.org/genproto/googleapis/rpc/status; version v0.0.0-20200526211855-cb27e3aa2013 --
@@ -383,10 +383,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 https://github.com/golang/go
 
 ** golang.org/x/net; version v0.0.0-20201021035429-f5854403a974 --
-https://go.googlesource.com/net
+https://golang.org/x/net
 
 ** golang.org/x/sys; version v0.0.0-20210616094352-59db8d763f22 --
-https://go.googlesource.com/sys
+https://golang.org/x/sys
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
 

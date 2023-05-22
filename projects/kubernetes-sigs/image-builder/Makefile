@@ -49,6 +49,7 @@ ADDITIONAL_PAUSE_1-23_FROM=1-22
 ADDITIONAL_PAUSE_1-24_FROM=1-23
 ADDITIONAL_PAUSE_1-25_FROM=1-24
 ADDITIONAL_PAUSE_1-26_FROM=1-26
+ADDITIONAL_PAUSE_1-27_FROM=1-27
 
 HAS_RELEASE_BRANCHES=true
 HAS_LICENSES=false
@@ -74,7 +75,7 @@ IMAGE_OS?=ubuntu
 IMAGE_FORMAT?=raw
 BUILD_AMI_TARGETS=build-ami-ubuntu-2004
 BUILD_OVA_TARGETS=setup-packer-configs-ova  $(FAKE_UBUNTU_OVA_PATH) $(FINAL_OVA_PATH)  upload-artifacts-ova
-BUILD_RAW_TARGETS=release-image-build-on-metal-ubuntu $(FAKE_UBUNTU_RAW_PATH) $(FINAL_RAW_IMAGE_PATH) upload-artifacts-raw
+BUILD_RAW_TARGETS=setup-packer-configs-raw release-image-build-on-metal-ubuntu $(FAKE_UBUNTU_RAW_PATH) $(FINAL_RAW_IMAGE_PATH) upload-artifacts-raw
 ifneq ($(BOTTLEROCKET_AMI_RELEASE_VERSION),null)
 	BUILD_AMI_TARGETS+=download-bottlerocket-ami $(FINAL_BOTTLEROCKET_AMI_PATH) upload-bottlerocket-ami
 endif
@@ -306,7 +307,7 @@ upload-bottlerocket-%:
 .PHONY: release-image-build-on-metal-%
 release-image-build-on-metal-%: $(GIT_PATCH_TARGET)
 	@echo -e $(call TARGET_START_LOG)
-	build/build_image_on_metal.sh $(BASE_DIRECTORY) $(PROJECT_PATH) $(RELEASE_BRANCH) $(RAW_IMAGE_BUILD_AMI) $(RAW_IMAGE_BUILD_INSTANCE_TYPE) $(RAW_IMAGE_BUILD_KEY_NAME) $* $(IMAGE_FORMAT) $(LATEST)
+	build/build_image_on_metal.sh $(BASE_DIRECTORY) $(PROJECT_PATH) $(RELEASE_BRANCH) $(RAW_IMAGE_BUILD_AMI) $(RAW_IMAGE_BUILD_INSTANCE_TYPE) $(RAW_IMAGE_BUILD_KEY_NAME) $* $(IMAGE_FORMAT) $(LATEST) $(ARTIFACTS_PATH)/$(IMAGE_FORMAT)/$*
 	@echo -e $(call TARGET_END_LOG)
 
 .PHONY: build-qemu-rhel-local

@@ -1,2 +1,2 @@
-f8ba8b3d1023bf237262bbecfe9b3bb7dc80c189a1be86aa87a43a6b63395b1a  _output/1-25/bin/cloud-provider-vsphere/linux-amd64/vsphere-cloud-controller-manager
-973e7d2cd585bf3835d8ee497f40b173433011edef596735389b3b071361c4d8  _output/1-25/bin/cloud-provider-vsphere/linux-arm64/vsphere-cloud-controller-manager
+620b29e58f3855e28dc317d0c50a01c0fb092324440f5b7ce3583b2b90e5615d  _output/1-25/bin/cloud-provider-vsphere/linux-amd64/vsphere-cloud-controller-manager
+97dc2f69b4782897311dceefefe0c69a6090378b9a3a7afc2e5cd1f6e3e6727a  _output/1-25/bin/cloud-provider-vsphere/linux-arm64/vsphere-cloud-controller-manager

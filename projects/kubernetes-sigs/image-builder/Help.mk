@@ -23,6 +23,17 @@ _output/1-26/dependencies/linux-arm64/eksa/kubernetes-sigs/etcdadm: ## Fetch `_o
 _output/1-26/dependencies/linux-amd64/eksa/kubernetes-sigs/cri-tools: ## Fetch `_output/1-26/dependencies/linux-amd64/eksa/kubernetes-sigs/cri-tools`
 _output/1-26/dependencies/linux-arm64/eksa/kubernetes-sigs/cri-tools: ## Fetch `_output/1-26/dependencies/linux-arm64/eksa/kubernetes-sigs/cri-tools`
 
+##@ Run in Docker Targets
+run-all-attributions-in-docker: ## Run `all-attributions` in docker builder container
+run-all-attributions-checksums-in-docker: ## Run `all-attributions-checksums` in docker builder container
+run-all-checksums-in-docker: ## Run `all-checksums` in docker builder container
+run-attribution-in-docker: ## Run `attribution` in docker builder container
+run-attribution-checksums-in-docker: ## Run `attribution-checksums` in docker builder container
+run-binaries-in-docker: ## Run `binaries` in docker builder container
+run-checksums-in-docker: ## Run `checksums` in docker builder container
+run-clean-in-docker: ## Run `clean` in docker builder container
+run-clean-go-cache-in-docker: ## Run `clean-go-cache` in docker builder container
+
 ##@ Clean Targets
 clean: ## Removes source and _output directory
 clean-repo: ## Removes source directory
@@ -33,7 +44,6 @@ add-generated-help-block: ## Add or update generated help block to document proj
 
 ##@Update Helpers
 run-target-in-docker: ## Run `MAKE_TARGET` using builder base docker container
-update-attribution-checksums-docker: ## Update attribution and checksums using the builder base docker container
 stop-docker-builder: ## Clean up builder base docker container
 generate: ## Update UPSTREAM_PROJECTS.yaml
 update-go-mods: ## Update locally checked-in go sum to assist in vuln scanning
@@ -42,6 +52,6 @@ patch-for-dep-update: ## After bumping dep in go.mod file and updating vendor, g
 create-ecr-repos: ## Create repos in ECR for project images for local testing
 
 ##@ Build Targets
-build: ## Called via prow presubmit, calls `release-image-build-on-metal-ubuntu fake-ubuntu.gz _output/tar/1-26/raw/ubuntu/ubuntu.gz upload-artifacts-raw download-bottlerocket-raw _output/tar/1-26/raw/bottlerocket/bottlerocket.img.gz upload-bottlerocket-raw build-ami-ubuntu-2004 download-bottlerocket-ami _output/tar/1-26/ami/bottlerocket/bottlerocket.img.gz upload-bottlerocket-ami setup-packer-configs-ova  fake-ubuntu.ova _output/tar/1-26/ova/ubuntu/ubuntu.ova  upload-artifacts-ova download-bottlerocket-ova _output/tar/1-26/ova/bottlerocket/bottlerocket.ova upload-bottlerocket-ova`
+build: ## Called via prow presubmit, calls `setup-packer-configs-raw release-image-build-on-metal-ubuntu fake-ubuntu.gz _output/tar/1-26/raw/ubuntu/ubuntu.gz upload-artifacts-raw download-bottlerocket-raw _output/tar/1-26/raw/bottlerocket/bottlerocket.img.gz upload-bottlerocket-raw build-ami-ubuntu-2004 download-bottlerocket-ami _output/tar/1-26/ami/bottlerocket/bottlerocket.img.gz upload-bottlerocket-ami setup-packer-configs-ova  fake-ubuntu.ova _output/tar/1-26/ova/ubuntu/ubuntu.ova  upload-artifacts-ova download-bottlerocket-ova _output/tar/1-26/ova/bottlerocket/bottlerocket.ova upload-bottlerocket-ova`
 release: ## Called via prow postsubmit + release jobs, calls `release-image-build-on-metal-ubuntu upload-artifacts-raw`
 ########### END GENERATED ###########################

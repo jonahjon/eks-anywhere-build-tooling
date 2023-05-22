@@ -1,5 +1,5 @@
 ## **GoVMOMI**
-![Version](https://img.shields.io/badge/version-v0.30.2-blue)
+![Version](https://img.shields.io/badge/version-v0.30.4-blue)
 ![Build Status](https://codebuild.us-west-2.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiZ1FxODROWXBIdytIZVBsNUFzODdBcngreGlZdlVwdUliRThoTGNDajBab0YzdDZ3NzVKSnBTVDBTS0lzY25sUG82MzZPMWdteE14VkZrK0F2TlppKzBjPSIsIml2UGFyYW1ldGVyU3BlYyI6IkJHNTRwbGtDV2xYRCtaZ0wiLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=main)
 
 [GoVMOMI](https://github.com/vmware/govmomi) is a Go library for interacting with VMware vSphere APIs (ESXi and/or vCenter). It primarily provides convenience functions for working with the vSphere API. It provides Go bindings to the default implementation of the VMware Managed Object Management Interface (VMOMI)
@@ -18,6 +18,6 @@ ex: [0.24.0 compared to 0.27.4](https://github.com/vmware/govmomi/compare/v0.24.
 for LDFLAGS changes, these should match what is in their Makefile and the EKS-A Makefile.
 1. Verify the golang version has not changed. Use the github release [action](https://github.com/vmware/govmomi/blob/master/.github/workflows/govmomi-release.yaml) as the source
 of truth for the golang version upstream builds with.
-1. Update checksums and attribution using `make update-attribution-checksums-docker`.
+1. Update checksums and attribution using `make run-attribution-checksums-in-docker`.
 1. Update the version at the top of this Readme.
 1. Run `make generate` to update the UPSTREAM_PROJECTS.yaml file.

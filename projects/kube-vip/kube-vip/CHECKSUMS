@@ -1,2 +1,2 @@
-e6f4a1c04cbbe8417f646d1b3e735abbce05794f9eab0c3a29823076a205d48e  _output/bin/kube-vip/linux-amd64/kube-vip
-254e1801fcef528e1f2c0bac877fbfceb923da43d00c2408ab2183882f22d344  _output/bin/kube-vip/linux-arm64/kube-vip
+0eec7aeb5d148bb603a22b5e04070bec69b698f6e1e0715d07fe38e953a791a0  _output/bin/kube-vip/linux-amd64/kube-vip
+d5bc1442a6069f80a3097179efd226609ca1087100d580d1f29183065719c9cc  _output/bin/kube-vip/linux-arm64/kube-vip

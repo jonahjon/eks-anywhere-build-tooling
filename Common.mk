@@ -40,6 +40,9 @@ endif
 CODEBUILD_CI?=false
 CI?=false
 JOB_TYPE?=
+INCLUDE_OUTPUT_IN_PROW_ARTIFACTS?=false
+# prow artifacts location env var
+ARTIFACTS?=
 CODEBUILD_BUILD_IMAGE?=
 CLONE_URL?=$(call GET_CLONE_URL,$(REPO_OWNER),$(REPO))
 #HELM_CLONE_URL=$(call GET_CLONE_URL,$(HELM_SOURCE_OWNER),$(HELM_SOURCE_REPOSITORY))
@@ -83,7 +86,8 @@ SUPPORTED_K8S_VERSIONS:=$(shell cat $(BASE_DIRECTORY)/release/SUPPORTED_RELEASE_
 SKIPPED_K8S_VERSIONS?=
 BINARIES_ARE_RELEASE_BRANCHED?=true
 IS_RELEASE_BRANCH_BUILD=$(filter true,$(HAS_RELEASE_BRANCHES))
-IS_UNRELEASE_BRANCH_TARGET=$(and $(filter false,$(BINARIES_ARE_RELEASE_BRANCHED)),$(filter binaries attribution checksums update-attribution-checksums-docker,$(MAKECMDGOALS)))
+UNRELEASE_BRANCH_BINARY_TARGETS=binaries attribution checksums
+IS_UNRELEASE_BRANCH_TARGET=$(and $(filter false,$(BINARIES_ARE_RELEASE_BRANCHED)),$(filter $(UNRELEASE_BRANCH_BINARY_TARGETS) $(foreach target,$(UNRELEASE_BRANCH_BINARY_TARGETS),run-$(target)-in-docker),$(MAKECMDGOALS)))
 TARGETS_ALLOWED_WITH_NO_RELEASE_BRANCH?=
 TARGETS_ALLOWED_WITH_NO_RELEASE_BRANCH+=build release clean clean-extra clean-go-cache help stop-docker-builder create-ecr-repos all-attributions all-checksums all-attributions-checksums update-patch-numbers
 MAKECMDGOALS_WITHOUT_VAR_VALUE=$(foreach t,$(MAKECMDGOALS),$(if $(findstring var-value-,$(t)),,$(t)))
@@ -123,8 +127,9 @@ endif
 #################### BASE IMAGES ###################
 BASE_IMAGE_REPO?=public.ecr.aws/eks-distro-build-tooling
 BASE_IMAGE_NAME?=eks-distro-base
+BASE_IMAGE_OS_VERSION?=al2
 COMPILER_IMAGE_VERSION?=
-BASE_IMAGE_TAG_FILE?=$(BASE_DIRECTORY)/$(shell echo $(BASE_IMAGE_NAME) | tr '[:lower:]' '[:upper:]' | tr '-' '_')_$(if $(COMPILER_IMAGE_VERSION),$(COMPILER_IMAGE_VERSION)_,)TAG_FILE
+BASE_IMAGE_TAG_FILE?=$(BASE_DIRECTORY)/$(call TO_UPPER,$(BASE_IMAGE_NAME))_$(if $(COMPILER_IMAGE_VERSION),$(COMPILER_IMAGE_VERSION)_,)$(if $(filter-out al2,$(BASE_IMAGE_OS_VERSION)),$(call TO_UPPER,$(BASE_IMAGE_OS_VERSION))_,)TAG_FILE
 BASE_IMAGE_TAG?=$(shell cat $(BASE_IMAGE_TAG_FILE))
 BASE_IMAGE?=$(BASE_IMAGE_REPO)/$(BASE_IMAGE_NAME):$(BASE_IMAGE_TAG)
 BUILDER_IMAGE?=$(BASE_IMAGE_REPO)/$(BASE_IMAGE_NAME)-builder:$(BASE_IMAGE_TAG)
@@ -343,15 +348,14 @@ GO_MOD_DOWNLOAD_TARGETS?=$(foreach path, $(UNIQ_GO_MOD_PATHS), $(call GO_MOD_DOW
 VENDOR_UPDATE_SCRIPT?=
 #### CGO ############
 CGO_CREATE_BINARIES?=false
-CGO_SOURCE=$(OUTPUT_DIR)/source
 IS_ON_BUILDER_BASE?=$(shell if [ -f /buildkit.sh ]; then echo true; fi;)
 BUILDER_PLATFORM?=$(shell echo $$(go env GOHOSTOS)/$$(go env GOHOSTARCH))
 needs-cgo-builder=$(and $(if $(filter true,$(CGO_CREATE_BINARIES)),true,),$(if $(filter-out $(1),$(BUILDER_PLATFORM)),true,))
 USE_DOCKER_FOR_CGO_BUILD?=false
-DOCKER_USE_ID_FOR_LINUX=$(shell if [ "$$(uname -s)" = "Linux" ] && [ -n "$${USER:-}" ]; then echo "-u $$(id -u $${USER}):$$(id -g $${USER})"; fi)
 GO_MOD_CACHE=$(shell source $(BUILD_LIB)/common.sh && build::common::use_go_version $(GOLANG_VERSION) > /dev/null 2>&1 && go env GOMODCACHE)
 GO_BUILD_CACHE=$(shell source $(BUILD_LIB)/common.sh && build::common::use_go_version $(GOLANG_VERSION) > /dev/null 2>&1 && go env GOCACHE)
 CGO_TARGET?=
+GO_MODS_VENDORED?=false
 ######################
 
 #### BUILD FLAGS ####
@@ -407,8 +411,7 @@ KUSTOMIZE_TARGET=$(OUTPUT_DIR)/kustomize
 GIT_DEPS_DIR?=$(OUTPUT_DIR)/gitdependencies
 SPECIAL_TARGET_SECONDARY=$(strip $(PROJECT_DEPENDENCIES_TARGETS) $(GO_MOD_DOWNLOAD_TARGETS))
 SKIP_CHECKSUM_VALIDATION?=false
-CGO_DOCKER_RUN_TIMEOUT?=15m
-DOCKER_RUN_COMMAND?=$(if $(filter true,$(CODEBUILD_CI)),retry_with_timeout $(CGO_DOCKER_RUN_TIMEOUT)) docker run $(shell if [ "$(CODEBUILD_CI)" != "true" ] && [ -t 0 ]; then echo '-it'; fi)
+IN_DOCKER_TARGETS=all-attributions all-attributions-checksums all-checksums attribution attribution-checksums binaries checksums clean clean-go-cache
 PRUNE_BUILDCTL?=false
 GITHUB_TOKEN?=
 ####################################################
@@ -463,13 +466,7 @@ endef
 # This will occansionally stall out in codebuild for an unknown reason
 # retry after a configurable timeout
 define CGO_DOCKER
-	source $(BUILD_LIB)/common.sh && build::docker::retry_pull --platform $(IMAGE_PLATFORMS) $(BUILDER_IMAGE); \
-	$(DOCKER_RUN_COMMAND) --rm -w /eks-anywhere-build-tooling/projects/$(COMPONENT) $(DOCKER_USE_ID_FOR_LINUX) \
-		--mount type=bind,source=$(BASE_DIRECTORY),target=/eks-anywhere-build-tooling \
-		--mount type=bind,source=$(GO_MOD_CACHE),target=/mod-cache \
-		-e GOPROXY=$(GOPROXY) -e GOMODCACHE=/mod-cache \
-		--platform $(IMAGE_PLATFORMS) \
-		--init $(BUILDER_IMAGE) make $(CGO_TARGET) BINARY_PLATFORMS=$(IMAGE_PLATFORMS)
+	$(BUILD_LIB)/run_target_docker.sh $(COMPONENT) $(CGO_TARGET) $(IMAGE_REPO) "$(RELEASE_BRANCH)" "$(ARTIFACTS_BUCKET)" "$(BASE_DIRECTORY)" "$(GO_MOD_CACHE)" true "$(IMAGE_PLATFORMS)"
 endef
 
 define SIMPLE_CREATE_BINARIES_SHELL
@@ -531,7 +528,7 @@ endif
 $(REPO)/%ks-anywhere-go-mod-download: REPO_SUBPATH=$(if $(filter e,$*),,$(*:%/e=%))
 $(REPO)/%ks-anywhere-go-mod-download: $(if $(PATCHES_DIR),$(GIT_PATCH_TARGET),$(GIT_CHECKOUT_TARGET))
 	@echo -e $(call TARGET_START_LOG)
-	$(BASE_DIRECTORY)/build/lib/go_mod_download.sh $(MAKE_ROOT) $(REPO) $(GIT_TAG) $(GOLANG_VERSION) "$(REPO_SUBPATH)"
+	if [[ "$(GO_MODS_VENDORED)" == "false" ]]; then $(BASE_DIRECTORY)/build/lib/go_mod_download.sh $(MAKE_ROOT) $(REPO) $(GIT_TAG) $(GOLANG_VERSION) "$(REPO_SUBPATH)"; fi
 	@touch $@
 	@echo -e $(call TARGET_END_LOG)
 
@@ -657,7 +654,7 @@ ifeq ($(SIMPLE_CREATE_TARBALLS),true)
 endif
 
 .PHONY: upload-artifacts
-upload-artifacts: s3-artifacts
+upload-artifacts: s3-artifacts upload-output-to-prow-artifacts-s3-artifacts
 	@echo -e $(call TARGET_START_LOG)
 	$(BASE_DIRECTORY)/build/lib/upload_artifacts.sh $(ARTIFACTS_PATH) $(ARTIFACTS_BUCKET) $(ARTIFACTS_UPLOAD_PATH) $(BUILD_IDENTIFIER) $(GIT_HASH) $(LATEST) $(UPLOAD_DRY_RUN) $(UPLOAD_DO_NOT_DELETE)
 	@echo -e $(call TARGET_END_LOG)
@@ -668,6 +665,12 @@ s3-artifacts: tarballs
 	$(BUILD_LIB)/create_release_checksums.sh $(ARTIFACTS_PATH)
 	$(BUILD_LIB)/validate_artifacts.sh $(MAKE_ROOT) $(ARTIFACTS_PATH) $(GIT_TAG) $(FAKE_ARM_BINARIES_FOR_VALIDATION) $(FAKE_AMD_BINARIES_FOR_VALIDATION) $(IMAGE_FORMAT) $(IMAGE_OS)
 	@echo -e $(call TARGET_END_LOG)
+
+.PHONY: upload-output-to-prow-artifacts-%
+upload-output-to-prow-artifacts-%:
+	@if [[ "$(JOB_TYPE)" == "presubmit" ]] && [[ "$(INCLUDE_OUTPUT_IN_PROW_ARTIFACTS)" == "true" ]]; then \
+		cp -rf $(OUTPUT_DIR) $(ARTIFACTS); \
+	fi
 
 ### Checksum Targets
 
@@ -680,7 +683,7 @@ ifneq ($(strip $(BINARY_TARGETS)),)
 endif
 
 .PHONY: validate-checksums
-validate-checksums: $(BINARY_TARGETS)
+validate-checksums: $(BINARY_TARGETS) upload-output-to-prow-artifacts-validate-checksums
 ifneq ($(and $(strip $(BINARY_TARGETS)), $(filter false, $(SKIP_CHECKSUM_VALIDATION))),)
 	@echo -e $(call TARGET_START_LOG)
 	$(BASE_DIRECTORY)/build/lib/validate_checksums.sh $(MAKE_ROOT) $(PROJECT_ROOT) $(MAKE_ROOT)/$(OUTPUT_BIN_DIR) $(FAKE_ARM_BINARIES_FOR_VALIDATION) $(FAKE_AMD_BINARIES_FOR_VALIDATION)
@@ -752,33 +755,22 @@ clean-job-caches: $(and $(findstring presubmit,$(JOB_TYPE)),$(filter true,$(PRUN
 	@echo -e $(call TARGET_END_LOG)
 
 ## CGO Targets
-.PHONY: %/cgo/amd64 %/cgo/arm64 prepare-cgo-folder
-
-# .git folder needed so git properly finds the root of the repo
-prepare-cgo-folder:
-	@mkdir -p $(CGO_SOURCE)/eks-anywhere-build-tooling/
-	rsync -rm  --exclude='.git/***' \
-		--exclude='***/_output/***' --exclude='projects/$(COMPONENT)/$(REPO)/***' \
-		--include='projects/$(COMPONENT)/***' --include='*/' --exclude='projects/***'  \
-		$(BASE_DIRECTORY)/ $(CGO_SOURCE)/eks-anywhere-build-tooling/
-	@mkdir -p $(OUTPUT_BIN_DIR)/$(subst /,-,$(IMAGE_PLATFORMS))
-	@mkdir -p $(CGO_SOURCE)/eks-anywhere-build-tooling/.git/{refs,objects}
-	@cp $(BASE_DIRECTORY)/.git/HEAD $(CGO_SOURCE)/eks-anywhere-build-tooling/.git
+.PHONY: %/cgo/amd64 %/cgo/arm64
 
 %/cgo/amd64 %/cgo/arm64: IMAGE_OUTPUT_TYPE?=local
 %/cgo/amd64 %/cgo/arm64: DOCKERFILE_FOLDER?=$(BUILD_LIB)/docker/linux/cgo
 %/cgo/amd64 %/cgo/arm64: IMAGE_NAME=binary-builder
 %/cgo/amd64 %/cgo/arm64: IMAGE_BUILD_ARGS?=GOPROXY COMPONENT
-%/cgo/amd64 %/cgo/arm64: IMAGE_CONTEXT_DIR?=$(CGO_SOURCE)
+%/cgo/amd64 %/cgo/arm64: IMAGE_CONTEXT_DIR?=.
 %/cgo/amd64 %/cgo/arm64: BUILDER_IMAGE=$(CURRENT_BUILDER_BASE_IMAGE)
 
 %/cgo/amd64: IMAGE_PLATFORMS=linux/amd64
 %/cgo/arm64: IMAGE_PLATFORMS=linux/arm64
 
-%/cgo/amd64: prepare-cgo-folder
+%/cgo/amd64:
 	$(if $(filter true, $(USE_DOCKER_FOR_CGO_BUILD)),$(CGO_DOCKER),$(BUILDCTL))
 
-%/cgo/arm64: prepare-cgo-folder
+%/cgo/arm64:
 	$(if $(filter true, $(USE_DOCKER_FOR_CGO_BUILD)),$(CGO_DOCKER),$(BUILDCTL))
 
 # As an attempt to see if using docker is more stable for cgo builds in Codebuild
@@ -896,7 +888,7 @@ add-generated-help-block:
 	$(BUILD_LIB)/generate_help_body.sh $(MAKE_ROOT) "$(BINARY_TARGET_FILES)" "$(BINARY_PLATFORMS)" "${BINARY_TARGETS}" \
 		$(REPO) $(if $(PATCHES_DIR),true,false) "$(LOCAL_IMAGE_TARGETS)" "$(IMAGE_TARGETS)" "$(BUILD_TARGETS)" "$(RELEASE_TARGETS)" \
 		"$(HAS_S3_ARTIFACTS)" "$(HAS_LICENSES)" "$(REPO_NO_CLONE)" "$(PROJECT_DEPENDENCIES_TARGETS)" \
-		"$(HAS_HELM_CHART)"
+		"$(HAS_HELM_CHART)" "$(IN_DOCKER_TARGETS)"
 
 ## --------------------------------------
 ## Update Helpers
@@ -905,11 +897,7 @@ add-generated-help-block:
 
 .PHONY: run-target-in-docker
 run-target-in-docker: # Run `MAKE_TARGET` using builder base docker container
-	$(BUILD_LIB)/run_target_docker.sh $(COMPONENT) $(MAKE_TARGET) $(IMAGE_REPO) "$(RELEASE_BRANCH)" $(ARTIFACTS_BUCKET)
-
-.PHONY: update-attribution-checksums-docker
-update-attribution-checksums-docker: # Update attribution and checksums using the builder base docker container
-	$(BUILD_LIB)/update_checksum_docker.sh $(COMPONENT) $(IMAGE_REPO) $(RELEASE_BRANCH)
+	$(BUILD_LIB)/run_target_docker.sh $(COMPONENT) $(MAKE_TARGET) $(IMAGE_REPO) "$(RELEASE_BRANCH)" "$(ARTIFACTS_BUCKET)" "$(BASE_DIRECTORY)" "$(GO_MOD_CACHE)"
 
 .PHONY: stop-docker-builder
 stop-docker-builder: # Clean up builder base docker container
@@ -980,3 +968,15 @@ github-rate-limit-%:
 		echo "Current Github rate limits:"; \
 		GH_PAGER='' gh api rate_limit; \
 	fi
+
+## --------------------------------------
+## Docker Helpers
+## --------------------------------------
+# $1 - target
+define RUN_IN_DOCKER_TARGET
+.PHONY: run-$(1)-in-docker
+run-$(1)-in-docker: MAKE_TARGET=$(1)
+run-$(1)-in-docker: run-target-in-docker
+endef
+
+$(foreach target,$(IN_DOCKER_TARGETS),$(eval $(call RUN_IN_DOCKER_TARGET,$(target))))
